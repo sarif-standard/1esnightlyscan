@@ -1,7 +1,7 @@
-import {PublicClientApplication} from "../web_modules/@azure/msal-browser.js";
-import {MsalProvider} from "../web_modules/@azure/msal-react.js";
-import React from "../web_modules/react.js";
-import ReactDOM from "../web_modules/react-dom.js";
+import {PublicClientApplication} from "../../web_modules/@azure/msal-browser.js";
+import {MsalProvider} from "../../web_modules/@azure/msal-react.js";
+import React from "../../web_modules/react.js";
+import ReactDOM from "../../web_modules/react-dom.js";
 import {App} from "./app.js";
 const instance = new PublicClientApplication({
   auth: {

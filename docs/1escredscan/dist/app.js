@@ -1,13 +1,13 @@
-import {InteractionType} from "../web_modules/@azure/msal-browser.js";
-import {AuthenticatedTemplate, UnauthenticatedTemplate, useIsAuthenticated, useMsal, useMsalAuthentication} from "../web_modules/@azure/msal-react.js";
-import swc from "../web_modules/@microsoft/sarif-web-component.js";
-import {Button} from "../web_modules/azure-devops-ui/Button.js";
-import {Card} from "../web_modules/azure-devops-ui/Card.js";
-import {Checkbox} from "../web_modules/azure-devops-ui/Checkbox.js";
-import {Icon, IconSize} from "../web_modules/azure-devops-ui/Icon.js";
-import {Page} from "../web_modules/azure-devops-ui/Page.js";
-import {Spinner} from "../web_modules/azure-devops-ui/Spinner.js";
-import React, {useEffect, useState} from "../web_modules/react.js";
+import {InteractionType} from "../../web_modules/@azure/msal-browser.js";
+import {AuthenticatedTemplate, UnauthenticatedTemplate, useIsAuthenticated, useMsal, useMsalAuthentication} from "../../web_modules/@azure/msal-react.js";
+import swc from "../../web_modules/@microsoft/sarif-web-component.js";
+import {Button} from "../../web_modules/azure-devops-ui/Button.js";
+import {Card} from "../../web_modules/azure-devops-ui/Card.js";
+import {Checkbox} from "../../web_modules/azure-devops-ui/Checkbox.js";
+import {Icon, IconSize} from "../../web_modules/azure-devops-ui/Icon.js";
+import {Page} from "../../web_modules/azure-devops-ui/Page.js";
+import {Spinner} from "../../web_modules/azure-devops-ui/Spinner.js";
+import React, {useEffect, useState} from "../../web_modules/react.js";
 const {Viewer} = swc;
 const params = new URLSearchParams(window.location.search);
 export function App() {
@@ -60,23 +60,31 @@ export function App() {
     className: "heightAuto bolt-page-grey"
   }, /* @__PURE__ */ React.createElement("div", {
     className: "page-content page-content-top"
-  }, /* @__PURE__ */ React.createElement(Card, null, locked ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Icon, {
+  }, /* @__PURE__ */ React.createElement(Card, null, locked ? /* @__PURE__ */ React.createElement("div", {
+    className: "flex-row flex-center"
+  }, /* @__PURE__ */ React.createElement(Icon, {
     iconName: "Lock",
     size: IconSize.large
-  }), /* @__PURE__ */ React.createElement("p", null, "The '", params.get("repository"), "' repository have been disabled because it contains live credentials in its source code or history. All repositories inside Microsoft must be free of plain-text, valid credentials. You may temporarily enable this repository by clicking the 'Enable Repo' button. Your identity will be associated with this request."), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Checkbox, {
+  }), /* @__PURE__ */ React.createElement("div", {
+    style: {margin: "0 32px 0 16px"}
+  }, /* @__PURE__ */ React.createElement("div", null, "The '", params.get("repository"), "' repository have been disabled because it contains live credentials in its source code or history. All repositories inside Microsoft must be free of plain-text, valid credentials. You may temporarily enable this repository by clicking the 'Enable Repository' button. Your identity will be associated with this request."), /* @__PURE__ */ React.createElement("div", {
+    style: {marginTop: 12}
+  }, /* @__PURE__ */ React.createElement(Checkbox, {
     label: "I understand that by enabling this repository, I accept responsibility to ensure all currently exposed credentials are invalidated within 5 business days.",
     checked: responsibility,
     onChange: (_, checked) => setResponsibility(checked)
-  })), /* @__PURE__ */ React.createElement("div", {
-    style: {marginTop: 16, marginLeft: "auto", marginRight: "auto"}
-  }, /* @__PURE__ */ React.createElement(Button, {
+  }))), /* @__PURE__ */ React.createElement(Button, {
     disabled: !responsibility,
     onClick: () => setLocked(false),
     primary: true
-  }, "Enable Repository"))) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Icon, {
+  }, "Enable Repository")) : /* @__PURE__ */ React.createElement("div", {
+    className: "flex-row flex-center"
+  }, /* @__PURE__ */ React.createElement(Icon, {
     iconName: "Unlock",
     size: IconSize.large
-  }), /* @__PURE__ */ React.createElement("p", null, "The '", params.get("repository"), "' repository contains live credentials in its source code or history. All repositories inside Microsoft must be free of plain-text, valid credentials. The repository has been enabled temporarily in order to assist with remediation."))))), /* @__PURE__ */ React.createElement(Viewer, {
+  }), /* @__PURE__ */ React.createElement("div", {
+    style: {marginLeft: 16}
+  }, "The '", params.get("repository"), "' repository contains live credentials in its source code or history. All repositories inside Microsoft must be free of plain-text, valid credentials. The repository has been enabled temporarily in order to assist with remediation."))))), /* @__PURE__ */ React.createElement(Viewer, {
     logs: sarif && [sarif],
     filterState: {
       Baseline: {value: ["new", "unchanged", "updated"]},
