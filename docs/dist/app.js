@@ -1,15 +1,17 @@
-import {InteractionType} from "../../web_modules/@azure/msal-browser.js";
-import {AuthenticatedTemplate, UnauthenticatedTemplate, useIsAuthenticated, useMsal, useMsalAuthentication} from "../../web_modules/@azure/msal-react.js";
-import swc from "../../web_modules/@microsoft/sarif-web-component.js";
-import {Button} from "../../web_modules/azure-devops-ui/Button.js";
-import {Card} from "../../web_modules/azure-devops-ui/Card.js";
-import {Checkbox} from "../../web_modules/azure-devops-ui/Checkbox.js";
-import {Icon, IconSize} from "../../web_modules/azure-devops-ui/Icon.js";
-import {Page} from "../../web_modules/azure-devops-ui/Page.js";
-import {Spinner} from "../../web_modules/azure-devops-ui/Spinner.js";
-import React, {useEffect, useState} from "../../web_modules/react.js";
+import {InteractionType} from "../_snowpack/pkg/@azure/msal-browser.js";
+import {AuthenticatedTemplate, UnauthenticatedTemplate, useIsAuthenticated, useMsal, useMsalAuthentication} from "../_snowpack/pkg/@azure/msal-react.js";
+import swc from "../_snowpack/pkg/@microsoft/sarif-web-component.js";
+import {Button} from "../_snowpack/pkg/azure-devops-ui/Button.js";
+import {Card} from "../_snowpack/pkg/azure-devops-ui/Card.js";
+import {Checkbox} from "../_snowpack/pkg/azure-devops-ui/Checkbox.js";
+import {Icon, IconSize} from "../_snowpack/pkg/azure-devops-ui/Icon.js";
+import {Page} from "../_snowpack/pkg/azure-devops-ui/Page.js";
+import {Spinner} from "../_snowpack/pkg/azure-devops-ui/Spinner.js";
+import React, {useEffect, useState} from "../_snowpack/pkg/react.js";
 const {Viewer} = swc;
 const params = new URLSearchParams(window.location.search);
+const {organization, project, repository} = Object.fromEntries(params.entries());
+const isRepositoryId = /^[{]?[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}[}]?$/m.test(repository);
 export function App() {
   const isAuthenticated = useIsAuthenticated();
   const {instance, accounts} = useMsal();
@@ -18,6 +20,12 @@ export function App() {
   const [sarif, setSarif] = useState();
   const [responsibility, setResponsibility] = useState(false);
   const [locked, setLocked] = useState(true);
+  const isParamsValid = isRepositoryId || organization || organization && project || organization && project && repository;
+  if (!isParamsValid) {
+    return /* @__PURE__ */ React.createElement("div", {
+      className: "center"
+    }, "Invalid parameters.");
+  }
   useEffect(() => {
     if (!isAuthenticated)
       return;
@@ -34,8 +42,8 @@ export function App() {
           scopes: ["api://f42dbafe-6e53-4dce-b025-cc4df39fb5cc/Ruleset.read"]
         });
         headers.append("Authorization", `Bearer ${tokenResponse.accessToken}`);
-        const {organization, project, repository} = Object.fromEntries(params.entries());
-        const response = await fetch(`https://sarif-pattern-matcher-internal-function.azurewebsites.net/api/query?${new URLSearchParams(Object.entries({organization, project, repository}))}`, {headers});
+        const {organization: organization2, project: project2, repository: repository2} = Object.fromEntries(params.entries());
+        const response = await fetch(`https://sarif-pattern-matcher-internal-function.azurewebsites.net/api/query?${new URLSearchParams(Object.entries({organization: organization2, project: project2, repository: repository2}))}`, {headers});
         const responseJson = await response.json();
         setSarif(responseJson);
       } catch (error) {
