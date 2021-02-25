@@ -1,0 +1,15 @@
+{
+  "imports": {
+    "@azure/msal-browser": "./@azure/msal-browser.js",
+    "@azure/msal-react": "./@azure/msal-react.js",
+    "@microsoft/sarif-web-component": "./@microsoft/sarif-web-component.js",
+    "azure-devops-ui/Button": "./azure-devops-ui/Button.js",
+    "azure-devops-ui/Card": "./azure-devops-ui/Card.js",
+    "azure-devops-ui/Checkbox": "./azure-devops-ui/Checkbox.js",
+    "azure-devops-ui/Icon": "./azure-devops-ui/Icon.js",
+    "azure-devops-ui/Page": "./azure-devops-ui/Page.js",
+    "azure-devops-ui/Spinner": "./azure-devops-ui/Spinner.js",
+    "react": "./react.js",
+    "react-dom": "./react-dom.js"
+  }
+}
