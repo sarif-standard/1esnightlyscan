@@ -42,8 +42,14 @@ export function App() {
           scopes: ["api://f42dbafe-6e53-4dce-b025-cc4df39fb5cc/Ruleset.read"]
         });
         headers.append("Authorization", `Bearer ${tokenResponse.accessToken}`);
-        const {organization: organization2, project: project2, repository: repository2} = Object.fromEntries(params.entries());
-        const response = await fetch(`https://sarif-pattern-matcher-internal-function.azurewebsites.net/api/query?${new URLSearchParams(Object.entries({organization: organization2, project: project2, repository: repository2}))}`, {headers});
+        const outboundParams = new URLSearchParams();
+        if (organization)
+          outboundParams.set("organization", organization);
+        if (project)
+          outboundParams.set("project", project);
+        if (repository)
+          outboundParams.set("repository", repository);
+        const response = await fetch(`https://sarif-pattern-matcher-internal-function.azurewebsites.net/api/query?${outboundParams}`, {headers});
         const responseJson = await response.json();
         setSarif(responseJson);
       } catch (error) {
