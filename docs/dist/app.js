@@ -70,7 +70,7 @@ export function App() {
     onClick: () => instance.logout()
   }, "Sign out ", accounts[0]?.username))), /* @__PURE__ */ React.createElement("div", {
     className: `viewer ${sarif ? "viewerActive" : ""}`
-  }, /* @__PURE__ */ React.createElement(Page, {
+  }, repository && !isRepositoryId && /* @__PURE__ */ React.createElement(Page, {
     className: "heightAuto bolt-page-grey"
   }, /* @__PURE__ */ React.createElement("div", {
     className: "page-content page-content-top"
