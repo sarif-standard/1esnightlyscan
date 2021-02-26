@@ -2,10 +2,10 @@ import {InteractionType} from "../web_modules/@azure/msal-browser.js";
 import {AuthenticatedTemplate, UnauthenticatedTemplate, useIsAuthenticated, useMsal, useMsalAuthentication} from "../web_modules/@azure/msal-react.js";
 import swc from "../web_modules/@microsoft/sarif-web-component.js";
 import {Button} from "../web_modules/azure-devops-ui/Button.js";
-import {Card} from "../web_modules/azure-devops-ui/Card.js";
-import {Checkbox} from "../web_modules/azure-devops-ui/Checkbox.js";
-import {Icon, IconSize} from "../web_modules/azure-devops-ui/Icon.js";
-import {Page} from "../web_modules/azure-devops-ui/Page.js";
+import "../web_modules/azure-devops-ui/Card.js";
+import "../web_modules/azure-devops-ui/Checkbox.js";
+import "../web_modules/azure-devops-ui/Icon.js";
+import "../web_modules/azure-devops-ui/Page.js";
 import {Spinner} from "../web_modules/azure-devops-ui/Spinner.js";
 import React, {useEffect, useState} from "../web_modules/react.js";
 const {Viewer} = swc;
@@ -70,35 +70,7 @@ export function App() {
     onClick: () => instance.logout()
   }, "Sign out ", accounts[0]?.username))), /* @__PURE__ */ React.createElement("div", {
     className: `viewer ${sarif ? "viewerActive" : ""}`
-  }, repository && !isRepositoryId && /* @__PURE__ */ React.createElement(Page, {
-    className: "heightAuto bolt-page-grey"
-  }, /* @__PURE__ */ React.createElement("div", {
-    className: "page-content page-content-top"
-  }, /* @__PURE__ */ React.createElement(Card, null, locked ? /* @__PURE__ */ React.createElement("div", {
-    className: "flex-row flex-center"
-  }, /* @__PURE__ */ React.createElement(Icon, {
-    iconName: "Lock",
-    size: IconSize.large
-  }), /* @__PURE__ */ React.createElement("div", {
-    style: {margin: "0 32px 0 16px"}
-  }, /* @__PURE__ */ React.createElement("div", null, "The '", params.get("repository"), "' repository have been disabled because it contains live credentials in its source code or history. All repositories inside Microsoft must be free of plain-text, valid credentials. You may temporarily enable this repository by clicking the 'Enable Repository' button. Your identity will be associated with this request."), /* @__PURE__ */ React.createElement("div", {
-    style: {marginTop: 12}
-  }, /* @__PURE__ */ React.createElement(Checkbox, {
-    label: "I understand that by enabling this repository, I accept responsibility to ensure all currently exposed credentials are invalidated within 5 business days.",
-    checked: responsibility,
-    onChange: (_, checked) => setResponsibility(checked)
-  }))), /* @__PURE__ */ React.createElement(Button, {
-    disabled: !responsibility,
-    onClick: () => setLocked(false),
-    primary: true
-  }, "Enable Repository")) : /* @__PURE__ */ React.createElement("div", {
-    className: "flex-row flex-center"
-  }, /* @__PURE__ */ React.createElement(Icon, {
-    iconName: "Unlock",
-    size: IconSize.large
-  }), /* @__PURE__ */ React.createElement("div", {
-    style: {marginLeft: 16}
-  }, "The '", params.get("repository"), "' repository contains live credentials in its source code or history. All repositories inside Microsoft must be free of plaintext, valid credentials. The repository has been enabled temporarily in order to assist with remediation."))))), /* @__PURE__ */ React.createElement(Viewer, {
+  }, false, /* @__PURE__ */ React.createElement(Viewer, {
     logs: sarif && [sarif],
     filterState: {
       Baseline: {value: ["new", "unchanged", "updated"]},

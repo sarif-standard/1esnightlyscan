@@ -3,7 +3,7 @@ import { a as css, g as getSafeId, K as KeyCode, f as eventTargetContainsNode, p
 import { r as react } from '../common/index-c314220c.js';
 import { B as Button, E as ExpandableButton } from '../common/ExpandableButton-a67c3070.js';
 import { S as ScreenContext, a as ScreenSize, I as Intersection, b as IntersectionContext, M as MoreActions, T as TabProviderContext } from '../common/TabContent-88d9909b.js';
-import { C as Checkbox } from '../common/Checkbox-1f08eac4.js';
+import { C as Checkbox } from '../common/Checkbox-3777c7f2.js';
 import { g as getTabIndex } from '../common/Focus-5dc7d126.js';
 import '../common/index-5a0b1fc3.js';
 import '../common/Accessibility-e11a7e50.js';
@@ -3637,4 +3637,8 @@ var CardHeader = function (props) {
     return (react.createElement(Header, { className: css(headerClassName, "bolt-card-header", collapsible && "bolt-card-header-collapsible"), commandBarItems: headerCommandBarItems, description: headerDescriptionProps.text, descriptionClassName: headerDescriptionProps.className, headerBreakpoints: headerBreakpoints, titleId: id, titleIconProps: headerIconProps, title: text, titleAriaLevel: ariaLevel, titleClassName: className, titleSize: size }));
 };
 
-export { Card };
+var CardFooter = function (props) {
+    return (react.createElement(SurfaceContext.Consumer, null, function (surfaceContext) { return (react.createElement("div", { className: css(props.className, "bolt-card-footer flex-row flex-noshrink", surfaceContext.horizontalClassName) }, props.children)); }));
+};
+
+export { Card, CardContent, CardFooter, CustomCard };
