@@ -37,11 +37,15 @@ export function App() {
       setLoading(true);
       try {
         const headers = new Headers();
-        const tokenResponse = await instance.acquireTokenSilent({
+        const {accessToken: funcToken} = await instance.acquireTokenSilent({
           account: instance.getAllAccounts()[0],
           scopes: ["api://f42dbafe-6e53-4dce-b025-cc4df39fb5cc/Ruleset.read"]
         });
-        headers.append("Authorization", `Bearer ${tokenResponse.accessToken}`);
+        headers.append("Authorization", `Bearer ${funcToken}`);
+        const {accessToken: adoToken} = await instance.acquireTokenSilent({
+          account: instance.getAllAccounts()[0],
+          scopes: ["499b84ac-1321-427f-aa17-267ca6975798/user_impersonation"]
+        });
         const outboundParams = new URLSearchParams();
         if (organization)
           outboundParams.set("organization", organization);
@@ -49,6 +53,7 @@ export function App() {
           outboundParams.set("project", project);
         if (repository)
           outboundParams.set("repository", repository);
+        outboundParams.set("token", adoToken);
         const response = await fetch(`https://sarif-pattern-matcher-internal-function.azurewebsites.net/api/query?${outboundParams}`, {headers});
         const responseJson = await response.json();
         setSarif(responseJson);
