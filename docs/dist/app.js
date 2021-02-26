@@ -46,13 +46,7 @@ export function App() {
           account: instance.getAllAccounts()[0],
           scopes: ["499b84ac-1321-427f-aa17-267ca6975798/user_impersonation"]
         });
-        const outboundParams = new URLSearchParams();
-        if (organization)
-          outboundParams.set("organization", organization);
-        if (project)
-          outboundParams.set("project", project);
-        if (repository)
-          outboundParams.set("repository", repository);
+        const outboundParams = new URLSearchParams(params);
         outboundParams.set("token", adoToken);
         const response = await fetch(`https://sarif-pattern-matcher-internal-function.azurewebsites.net/api/query?${outboundParams}`, {headers});
         const responseJson = await response.json();
