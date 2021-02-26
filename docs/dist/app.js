@@ -98,7 +98,7 @@ export function App() {
     size: IconSize.large
   }), /* @__PURE__ */ React.createElement("div", {
     style: {marginLeft: 16}
-  }, "The '", params.get("repository"), "' repository contains live credentials in its source code or history. All repositories inside Microsoft must be free of plain-text, valid credentials. The repository has been enabled temporarily in order to assist with remediation."))))), /* @__PURE__ */ React.createElement(Viewer, {
+  }, "The '", params.get("repository"), "' repository contains live credentials in its source code or history. All repositories inside Microsoft must be free of plaintext, valid credentials. The repository has been enabled temporarily in order to assist with remediation."))))), /* @__PURE__ */ React.createElement(Viewer, {
     logs: sarif && [sarif],
     filterState: {
       Baseline: {value: ["new", "unchanged", "updated"]},
