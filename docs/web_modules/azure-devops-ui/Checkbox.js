@@ -1,4 +1,4 @@
-export { C as Checkbox, T as TriStateCheckbox } from '../common/Checkbox-3777c7f2.js';
+export { C as Checkbox } from '../common/Checkbox-1f08eac4.js';
 import '../common/Icon.Props-7e4a5eac.js';
 import '../common/Util-bc2f8488.js';
 import '../common/index-c314220c.js';

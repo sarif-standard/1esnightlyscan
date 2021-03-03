@@ -55,4 +55,4 @@ var Page = /** @class */ (function (_super) {
     return Page;
 }(react.Component));
 
-export { Orientation, Page };
+export { Page };

@@ -108,4 +108,4 @@ var Checkbox = /** @class */ (function (_super) {
     return Checkbox;
 }(TriStateCheckbox));
 
-export { Checkbox as C, TriStateCheckbox as T };
+export { Checkbox as C };
