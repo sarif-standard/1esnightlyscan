@@ -44,12 +44,6 @@ export function App() {
   const [sarif, setSarif] = useState();
   const [responsibility, setResponsibility] = useState(false);
   const [repoEnabled, setRepoEnabled] = useState(mockRepoEnabled ?? false);
-  const isParamsValid = !!isRepositoryId || !!organization || !!(organization && project) || !!(organization && project && repository);
-  if (!isParamsValid) {
-    return /* @__PURE__ */ React.createElement("div", {
-      className: "center"
-    }, "Invalid parameters.");
-  }
   const isRespository = !!isRepositoryId || !!(organization && project && repository);
   useEffect(() => {
     if (!isAuthenticated)
