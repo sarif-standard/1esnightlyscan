@@ -106,7 +106,7 @@ export function App() {
         return;
       setTimeout(() => {
         spamcop.postMessage(getSnippets().join("\n\n"), spamcopUrl);
-      }, 1e3);
+      }, 500);
     }
   }, "Revalidate Results"), /* @__PURE__ */ React.createElement(Button, {
     onClick: () => instance.logout()
@@ -128,17 +128,17 @@ export function App() {
       size: IconSize.large
     }), /* @__PURE__ */ React.createElement("div", {
       style: {marginLeft: 16}
-    }, "The '", repository, "' repository contains live credentials in its source code or history. All repositories inside Microsoft must be free of plaintext, valid credentials. The repository has been enabled temporarily in order to assist with remediation.")) : /* @__PURE__ */ React.createElement("div", {
+    }, "The '", repository, "' repository contains live credentials in its source code or history. All repositories inside Microsoft must be free of credentials. The repository has been enabled temporarily in order to assist with remediation.")) : /* @__PURE__ */ React.createElement("div", {
       className: "flex-row flex-center"
     }, /* @__PURE__ */ React.createElement(Icon, {
       iconName: "Lock",
       size: IconSize.large
     }), /* @__PURE__ */ React.createElement("div", {
       style: {margin: "0 32px 0 16px"}
-    }, /* @__PURE__ */ React.createElement("div", null, "The '", params.get("repository"), "' repository have been disabled because it contains live credentials in its source code or history. All repositories inside Microsoft must be free of plain-text, valid credentials. You may temporarily enable this repository by clicking the 'Enable Repository' button. Your identity will be associated with this request."), /* @__PURE__ */ React.createElement("div", {
+    }, /* @__PURE__ */ React.createElement("div", null, "The '", repository, "' repository has been disabled because it contains live credentials in its source code or history. All repositories inside Microsoft must be free of credentials. You may temporarily enable this repository by clicking the 'Enable Repository' button. Your identity will be associated with this request."), /* @__PURE__ */ React.createElement("div", {
       style: {marginTop: 12}
     }, /* @__PURE__ */ React.createElement(Checkbox, {
-      label: "I understand that by enabling this repository, I accept responsibility to ensure all currently exposed credentials are invalidated within 5 business days.",
+      label: "I understand that by enabling this repository, I accept responsibility to ensure all currently exposed credentials are invalidated within 72 hours.",
       checked: responsibility,
       onChange: (_, checked) => setResponsibility(checked)
     }))), /* @__PURE__ */ React.createElement(Button, {
