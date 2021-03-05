@@ -21,6 +21,12 @@ const sarifLogZeroResults = {
 };
 const params = new URLSearchParams(window.location.search);
 const {organization, project, repository} = Object.fromEntries(params.entries());
+const enableRevalidateResults = (() => {
+  const value = params.get("enableRevalidateResults");
+  if (value === "")
+    return true;
+  return void 0;
+})();
 const mockRepoEnabled = (() => {
   const value = params.get("mockRepoEnabled");
   if (value === "true")
@@ -36,12 +42,14 @@ const mockZeroResults = (() => {
   return void 0;
 })();
 const isRepositoryId = /^[{]?[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}[}]?$/m.test(repository);
+let getSnippets;
 export function App() {
   const isAuthenticated = useIsAuthenticated();
   const {instance, accounts} = useMsal();
   const {login} = useMsalAuthentication(InteractionType.Silent, {scopes: []});
   const [loading, setLoading] = useState(false);
   const [sarif, setSarif] = useState();
+  const [getSnippetsReady, setGetSnippetsReady] = useState(false);
   const [responsibility, setResponsibility] = useState(false);
   const [repoEnabled, setRepoEnabled] = useState(mockRepoEnabled ?? false);
   const isRespository = !!isRepositoryId || !!(organization && project && repository);
@@ -89,7 +97,18 @@ export function App() {
     className: "intro"
   }, /* @__PURE__ */ React.createElement("div", {
     className: "introHeader"
-  }, /* @__PURE__ */ React.createElement("h1", null, document.title), loading && /* @__PURE__ */ React.createElement(Spinner, null), /* @__PURE__ */ React.createElement(Button, {
+  }, /* @__PURE__ */ React.createElement("h1", null, document.title), loading && /* @__PURE__ */ React.createElement(Spinner, null), enableRevalidateResults && /* @__PURE__ */ React.createElement(Button, {
+    disabled: !sarif || !getSnippetsReady,
+    onClick: () => {
+      const spamcopUrl = "https://sarif-standard.github.io/spamcop/";
+      const spamcop = open(spamcopUrl);
+      if (!spamcop)
+        return;
+      setTimeout(() => {
+        spamcop.postMessage(getSnippets().join("\n\n"), spamcopUrl);
+      }, 1e3);
+    }
+  }, "Revalidate Results"), /* @__PURE__ */ React.createElement(Button, {
     onClick: () => instance.logout()
   }, "Sign out ", accounts[0]?.username))), /* @__PURE__ */ React.createElement("div", {
     className: `viewer ${sarif ? "viewerActive" : ""}`
@@ -133,6 +152,10 @@ export function App() {
       Baseline: {value: ["new", "unchanged", "updated"]},
       Level: {value: ["error"]}
     },
-    successMessage: isRespository ? `No live credentials have been detected in the '${repository}' repository. Nice job!` : "No validated credentials detected."
+    successMessage: isRespository ? `No live credentials have been detected in the '${repository}' repository. Nice job!` : "No validated credentials detected.",
+    onCreate: (getFilteredContextRegionSnippetTexts) => {
+      getSnippets = getFilteredContextRegionSnippetTexts;
+      setGetSnippetsReady(true);
+    }
   }))));
 }
