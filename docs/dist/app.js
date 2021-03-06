@@ -157,7 +157,7 @@ export function App() {
       disabled: !responsibility,
       onClick: async () => {
         try {
-          const response = await fetchSpam("enable", "PUT");
+          const response = await fetchSpam("enable", "PATCH");
           if (response.status !== 200)
             throw new Error(response.statusText);
           setRepoEnabled(true);
