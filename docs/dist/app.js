@@ -20,9 +20,15 @@ const sarifLogZeroResults = {
   }]
 };
 const params = new URLSearchParams(window.location.search);
-const {organization, project, repository} = Object.fromEntries(params.entries());
+const {repository} = Object.fromEntries(params.entries());
 const enableRevalidateResults = (() => {
   const value = params.get("enableRevalidateResults");
+  if (value === "")
+    return true;
+  return void 0;
+})();
+const mockRepo = (() => {
+  const value = params.get("mockRepo");
   if (value === "")
     return true;
   return void 0;
@@ -41,7 +47,6 @@ const mockZeroResults = (() => {
     return true;
   return void 0;
 })();
-const isRepositoryId = /^[{]?[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}[}]?$/m.test(repository);
 let getSnippets;
 export function App() {
   const isAuthenticated = useIsAuthenticated();
@@ -51,8 +56,23 @@ export function App() {
   const [sarif, setSarif] = useState();
   const [getSnippetsReady, setGetSnippetsReady] = useState(false);
   const [responsibility, setResponsibility] = useState(false);
-  const [repoEnabled, setRepoEnabled] = useState(mockRepoEnabled ?? false);
-  const isRespository = !!isRepositoryId || !!(organization && project && repository);
+  const [repoEnabled, setRepoEnabled] = useState(mockRepoEnabled);
+  const isRespository = repoEnabled != void 0;
+  async function fetchSpam(funcName, method) {
+    const headers = new Headers();
+    const {accessToken: funcToken} = await instance.acquireTokenSilent({
+      account: instance.getAllAccounts()[0],
+      scopes: ["api://f42dbafe-6e53-4dce-b025-cc4df39fb5cc/Ruleset.read"]
+    });
+    headers.append("Authorization", `Bearer ${funcToken}`);
+    const {accessToken: adoToken} = await instance.acquireTokenSilent({
+      account: instance.getAllAccounts()[0],
+      scopes: ["499b84ac-1321-427f-aa17-267ca6975798/user_impersonation"]
+    });
+    const outboundParams = new URLSearchParams(params);
+    outboundParams.set("token", adoToken);
+    return await fetch(`https://sarif-pattern-matcher-internal-function.azurewebsites.net/api/${funcName}?${outboundParams}`, {method, headers});
+  }
   useEffect(() => {
     if (!isAuthenticated)
       return;
@@ -68,21 +88,13 @@ export function App() {
     (async () => {
       setLoading(true);
       try {
-        const headers = new Headers();
-        const {accessToken: funcToken} = await instance.acquireTokenSilent({
-          account: instance.getAllAccounts()[0],
-          scopes: ["api://f42dbafe-6e53-4dce-b025-cc4df39fb5cc/Ruleset.read"]
-        });
-        headers.append("Authorization", `Bearer ${funcToken}`);
-        const {accessToken: adoToken} = await instance.acquireTokenSilent({
-          account: instance.getAllAccounts()[0],
-          scopes: ["499b84ac-1321-427f-aa17-267ca6975798/user_impersonation"]
-        });
-        const outboundParams = new URLSearchParams(params);
-        outboundParams.set("token", adoToken);
-        const response = await fetch(`https://sarif-pattern-matcher-internal-function.azurewebsites.net/api/query?${outboundParams}`, {headers});
+        const response = await fetchSpam("query");
         const responseJson = await response.json();
         setSarif(responseJson);
+        if (mockRepoEnabled === void 0) {
+          const repoDisabled = responseJson?.runs?.[0]?.versionControlProvenance?.[0]?.properties?.isDisabled;
+          setRepoEnabled(repoDisabled == void 0 ? void 0 : !repoDisabled);
+        }
       } catch (error) {
         alert(error);
       }
@@ -113,9 +125,9 @@ export function App() {
   }, "Sign out ", accounts[0]?.username))), /* @__PURE__ */ React.createElement("div", {
     className: `viewer ${sarif ? "viewerActive" : ""}`
   }, (() => {
-    if (!isRespository)
+    if (!mockRepo)
       return null;
-    if (mockRepoEnabled === void 0)
+    if (!isRespository)
       return null;
     return /* @__PURE__ */ React.createElement(Page, {
       className: "heightAuto bolt-page-grey"
@@ -143,7 +155,16 @@ export function App() {
       onChange: (_, checked) => setResponsibility(checked)
     }))), /* @__PURE__ */ React.createElement(Button, {
       disabled: !responsibility,
-      onClick: () => setRepoEnabled(false),
+      onClick: async () => {
+        try {
+          const response = await fetchSpam("enable", "PUT");
+          if (response.status !== 200)
+            throw new Error(response.statusText);
+          setRepoEnabled(true);
+        } catch (error) {
+          alert(error);
+        }
+      },
       primary: true
     }, "Enable Repository")))));
   })(), /* @__PURE__ */ React.createElement(Viewer, {
