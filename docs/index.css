@@ -94,10 +94,9 @@ h1 {
 }
 
 .viewer .vss-FilterBar {
-	flex-shrink: 0; /* fixing ADO-UI issue */
+	flex-shrink: 0; /* fixes ADO-UI issue */
 }
 
 .heightAuto {
 	height: auto !important;
 }
-

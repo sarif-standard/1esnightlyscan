@@ -107,7 +107,7 @@ export function App() {
     onClick: () => login(InteractionType.Popup, {scopes: []})
   }, "Sign in"), /* @__PURE__ */ React.createElement("div", {
     className: "signinMessage"
-  }, "Sign in to view repository status", /* @__PURE__ */ React.createElement("br", null), " and credentials requiring remediation.")))), /* @__PURE__ */ React.createElement(AuthenticatedTemplate, null, /* @__PURE__ */ React.createElement("div", {
+  }, "Sign in to view repository status", /* @__PURE__ */ React.createElement("br", null), "and live secrets that require remediation.'")))), /* @__PURE__ */ React.createElement(AuthenticatedTemplate, null, /* @__PURE__ */ React.createElement("div", {
     className: "intro"
   }, /* @__PURE__ */ React.createElement("div", {
     className: "introHeader"
