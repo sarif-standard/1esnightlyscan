@@ -134,17 +134,17 @@ export function App() {
       size: IconSize.large
     }), /* @__PURE__ */ React.createElement("div", {
       style: {marginLeft: 16}
-    }, "The '", repository ?? repo, "' repository contains live credentials in its source code or history. All repositories inside Microsoft must be free of credentials. The repository is temporarily enabled in order to assist with remediation. If the below issues are not remediated, this repository will be disabled.")) : /* @__PURE__ */ React.createElement("div", {
+    }, "The '", repository ?? repo, "' repository contains live secrets in its source code or history. All repositories inside Microsoft must be free of secrets. The repository is temporarily enabled in order to assist with remediation. If the below issues are not remediated, this repository will be disabled.")) : /* @__PURE__ */ React.createElement("div", {
       className: "flex-row flex-center"
     }, /* @__PURE__ */ React.createElement(Icon, {
       iconName: "Lock",
       size: IconSize.large
     }), /* @__PURE__ */ React.createElement("div", {
       style: {margin: "0 32px 0 16px"}
-    }, /* @__PURE__ */ React.createElement("div", null, "The '", repository ?? repo, "' repository has been disabled because it contains live credentials in its source code or history. All repositories inside Microsoft must be free of credentials. You may temporarily enable this repository by clicking the 'Enable Repository' button. Your identity will be associated with this request."), /* @__PURE__ */ React.createElement("div", {
+    }, /* @__PURE__ */ React.createElement("div", null, "The '", repository ?? repo, "' repository has been disabled because it contains live secrets in its source code or history. All repositories inside Microsoft must be free of secrets. You may temporarily enable this repository by clicking the 'Enable Repository' button. Your identity will be associated with this request."), /* @__PURE__ */ React.createElement("div", {
       style: {marginTop: 12}
     }, /* @__PURE__ */ React.createElement(Checkbox, {
-      label: "I understand that by enabling this repository, I accept responsibility to ensure all currently exposed credentials are invalidated within 72 hours.",
+      label: "I understand that by enabling this repository, I accept responsibility to ensure all currently exposed secrets are invalidated within 72 hours.",
       checked: responsibility,
       onChange: (_, checked) => setResponsibility(checked)
     }))), /* @__PURE__ */ React.createElement(Button, {
@@ -167,7 +167,7 @@ export function App() {
       Baseline: {value: ["new", "unchanged", "updated"]},
       Level: {value: ["error"]}
     },
-    successMessage: isRespository ? `No live credentials have been detected in the '${repository ?? repo}' repository. Nice job!` : "No validated credentials detected.",
+    successMessage: isRespository ? `No live secrets have been detected in the '${repository ?? repo}' repository. Nice job!` : "No live secrets detected.",
     onCreate: (getFilteredContextRegionSnippetTexts) => {
       getSnippets = getFilteredContextRegionSnippetTexts;
       setGetSnippetsReady(true);
