@@ -140,7 +140,7 @@ export function App() {
       size: IconSize.large
     }), /* @__PURE__ */ React.createElement("div", {
       style: {marginLeft: 16}
-    }, "The '", repository ?? repo, "' repository contains live credentials in its source code or history. All repositories inside Microsoft must be free of credentials. The repository has been enabled temporarily in order to assist with remediation.")) : /* @__PURE__ */ React.createElement("div", {
+    }, "The '", repository ?? repo, "' repository contains live credentials in its source code or history. All repositories inside Microsoft must be free of credentials. The repository is temporarily enabled in order to assist with remediation. If the below issues are not remediated, this repository will be disabled.")) : /* @__PURE__ */ React.createElement("div", {
       className: "flex-row flex-center"
     }, /* @__PURE__ */ React.createElement(Icon, {
       iconName: "Lock",
