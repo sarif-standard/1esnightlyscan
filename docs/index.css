@@ -89,7 +89,7 @@ h1 {
 	opacity: 1;
 }
 
-.viewer .bolt-page {
+.viewer .bolt-page:not(:first-of-type) {
 	padding-bottom: 32px;
 }
 
