@@ -21,12 +21,6 @@ const sarifLogZeroResults = {
 };
 const params = new URLSearchParams(window.location.search);
 const {repo, repository} = Object.fromEntries(params.entries());
-const enableRevalidateResults = (() => {
-  const value = params.get("enableRevalidateResults");
-  if (value === "")
-    return true;
-  return void 0;
-})();
 const mockRepoEnabled = (() => {
   const value = params.get("mockRepoEnabled");
   if (value === "true")
@@ -111,7 +105,7 @@ export function App() {
     className: "intro"
   }, /* @__PURE__ */ React.createElement("div", {
     className: "introHeader"
-  }, /* @__PURE__ */ React.createElement("h1", null, document.title), loading && /* @__PURE__ */ React.createElement(Spinner, null), enableRevalidateResults && /* @__PURE__ */ React.createElement(Button, {
+  }, /* @__PURE__ */ React.createElement("h1", null, document.title), loading && /* @__PURE__ */ React.createElement(Spinner, null), /* @__PURE__ */ React.createElement(Button, {
     disabled: !sarif || !getSnippetsReady,
     onClick: () => {
       const spamcopUrl = "https://sarif-standard.github.io/spamcop/";
@@ -122,7 +116,7 @@ export function App() {
         spamcop.postMessage(getSnippets().join("\n\n"), spamcopUrl);
       }, 500);
     }
-  }, "Revalidate Results"), /* @__PURE__ */ React.createElement(Button, {
+  }, "Revalidate Now"), /* @__PURE__ */ React.createElement(Button, {
     onClick: () => instance.logout()
   }, "Sign out ", accounts[0]?.username))), /* @__PURE__ */ React.createElement("div", {
     className: `viewer ${sarif ? "viewerActive" : ""}`
