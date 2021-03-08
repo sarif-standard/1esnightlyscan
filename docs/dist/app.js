@@ -96,10 +96,18 @@ export function App() {
     })();
   }, [isAuthenticated]);
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(UnauthenticatedTemplate, null, /* @__PURE__ */ React.createElement("div", {
+    className: "intro"
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "introHeader"
+  }, /* @__PURE__ */ React.createElement("h1", null, document.title))), /* @__PURE__ */ React.createElement("div", {
     className: "center"
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "flex-column flex-center"
   }, /* @__PURE__ */ React.createElement(Button, {
     onClick: () => login(InteractionType.Popup, {scopes: []})
-  }, "Sign in"))), /* @__PURE__ */ React.createElement(AuthenticatedTemplate, null, /* @__PURE__ */ React.createElement("div", {
+  }, "Sign in"), /* @__PURE__ */ React.createElement("div", {
+    className: "signinMessage"
+  }, "Sign in to view repository status", /* @__PURE__ */ React.createElement("br", null), " and credentials requiring remediation.")))), /* @__PURE__ */ React.createElement(AuthenticatedTemplate, null, /* @__PURE__ */ React.createElement("div", {
     className: "intro"
   }, /* @__PURE__ */ React.createElement("div", {
     className: "introHeader"

@@ -27,17 +27,25 @@ body {
 
 #root {
 	width: 100%;
+	display: flex;
+	flex-direction: column;
 }
 
 .center {
-	height: 100%;
+	flex: 1 1 auto;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 }
 
+.signinMessage {
+	margin-top: 16px;
+	text-align: center;
+	line-height: 1.5;
+}
+
 .intro {
-	height: 100%;
+	flex: 0 0 auto;
 	display: flex;
 	flex-direction: column;
 
@@ -52,8 +60,7 @@ body {
 .introHeader {
 	display: flex;
 	align-items: center;
-	padding: 0 32px;
-	padding-top: 8px;
+	padding: 8px 32px; /* Merge with H1? */
 }
 
 .introHeader *:not(:first-child) {
@@ -69,23 +76,28 @@ h1 {
 
 .viewer {
 	pointer-events: none;
-	position: absolute;
+	flex: 1 1 auto;
+	overflow-y: auto;
 	opacity: 0;
-	top: 180px;
-	left: 0; right: 0;
-	height: 100%;
 	box-shadow:
 		0 0px 5px 2px rgba(0, 0, 0, 0.10);
-	transition: top 500ms ease-in-out, opacity 250ms 250ms;
+	transition: opacity 250ms;
 }
 
 .viewer.viewerActive {
 	pointer-events: initial;
 	opacity: 1;
-	top: 80px;
-	transition: top 500ms, opacity 250ms;
+}
+
+.viewer .bolt-page {
+	padding-bottom: 32px;
+}
+
+.viewer .vss-FilterBar {
+	flex-shrink: 0; /* fixing ADO-UI issue */
 }
 
 .heightAuto {
 	height: auto !important;
 }
+
