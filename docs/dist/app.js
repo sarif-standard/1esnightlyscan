@@ -27,12 +27,6 @@ const enableRevalidateResults = (() => {
     return true;
   return void 0;
 })();
-const mockRepo = (() => {
-  const value = params.get("mockRepo");
-  if (value === "")
-    return true;
-  return void 0;
-})();
 const mockRepoEnabled = (() => {
   const value = params.get("mockRepoEnabled");
   if (value === "true")
@@ -125,8 +119,6 @@ export function App() {
   }, "Sign out ", accounts[0]?.username))), /* @__PURE__ */ React.createElement("div", {
     className: `viewer ${sarif ? "viewerActive" : ""}`
   }, (() => {
-    if (!mockRepo)
-      return null;
     if (!isRespository)
       return null;
     return /* @__PURE__ */ React.createElement(Page, {
