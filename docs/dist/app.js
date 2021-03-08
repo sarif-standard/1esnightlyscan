@@ -118,7 +118,10 @@ export function App() {
     }
   }, "Revalidate Now"), /* @__PURE__ */ React.createElement(Button, {
     onClick: () => instance.logout()
-  }, "Sign out ", accounts[0]?.username))), /* @__PURE__ */ React.createElement("div", {
+  }, "Sign out ", accounts[0]?.username), /* @__PURE__ */ React.createElement(Button, {
+    iconProps: {iconName: "Mail"},
+    href: `mailto:caicredremediation@microsoft.com?subject=${document.title}&body=${encodeURIComponent(document.location.toString())}`
+  }))), /* @__PURE__ */ React.createElement("div", {
     className: `viewer ${sarif ? "viewerActive" : ""}`
   }, (() => {
     if (!isRespository)
