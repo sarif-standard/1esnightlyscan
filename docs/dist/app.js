@@ -23,7 +23,14 @@ const sarifLogZeroResults = {
       driver: {
         name: "Sample Tool"
       }
-    }
+    },
+    versionControlProvenance: [
+      {
+        properties: {
+          isDisabled: false
+        }
+      }
+    ]
   }]
 };
 const params = new URLSearchParams(window.location.search);
@@ -77,6 +84,10 @@ export function App() {
       return;
     if (mockZeroResults) {
       setSarif(sarifLogZeroResults);
+      if (mockRepoEnabled === void 0) {
+        const repoDisabled = sarifLogZeroResults?.runs?.[0]?.versionControlProvenance?.[0]?.properties?.isDisabled;
+        setRepoEnabled(repoDisabled == void 0 ? void 0 : !repoDisabled);
+      }
       return;
     }
     ;
@@ -96,6 +107,9 @@ export function App() {
       setLoading(false);
     })();
   }, [isAuthenticated]);
+  const resultCount = sarif?.runs?.reduce((acc, run) => {
+    return acc + (run.results?.filter((result) => result.level === "error").length ?? 0);
+  }, 0);
   const scanAge = (() => {
     const local = dayjs();
     const pacific = local.tz("America/Los_Angeles");
@@ -139,6 +153,8 @@ export function App() {
     className: `viewer ${sarif ? "viewerActive" : ""}`
   }, (() => {
     if (!isRespository)
+      return null;
+    if (!resultCount)
       return null;
     return /* @__PURE__ */ React.createElement(Page, {
       className: "heightAuto bolt-page-grey"
