@@ -1,5 +1,6 @@
-import { r as react } from '../common/index-c314220c.js';
+import { r as react } from '../common/index-abdc4d2d.js';
 import { s as stubbedPublicClientApplication, a as InteractionStatus, L as Logger, W as WrapperSKU, E as EventType, b as EventMessageUtils, I as InteractionType } from '../common/index.es-1236de46.js';
+import '../common/_commonjsHelpers-4f955397.js';
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
