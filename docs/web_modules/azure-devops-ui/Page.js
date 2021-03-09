@@ -1,12 +1,11 @@
-import { _ as __extends, S as SurfaceContext, n as SurfaceBackground, j as ObservableArray } from '../common/Icon.Props-aa4785d7.js';
-import { a as css } from '../common/Util-c5aac4ed.js';
-import { r as react } from '../common/index-abdc4d2d.js';
-import { I as Intersection, c as TabProvider, d as TabGroupProvider } from '../common/TabContent-218b1663.js';
-import '../common/index-2be6b7dd.js';
-import '../common/_commonjsHelpers-4f955397.js';
-import '../common/ExpandableButton-0197ca49.js';
+import { _ as __extends, S as SurfaceContext, n as SurfaceBackground, j as ObservableArray } from '../common/Icon.Props-7e4a5eac.js';
+import { a as css } from '../common/Util-bc2f8488.js';
+import { r as react } from '../common/index-c314220c.js';
+import { I as Intersection, c as TabProvider, d as TabGroupProvider } from '../common/TabContent-88d9909b.js';
+import '../common/index-5a0b1fc3.js';
+import '../common/ExpandableButton-a67c3070.js';
 import '../common/Accessibility-e11a7e50.js';
-import '../common/Focus-eab5ece8.js';
+import '../common/Focus-5dc7d126.js';
 
 /** SNOWPACK INJECT STYLE: azure-devops-ui/Components/Page/Page.css */
 function __snowpack__injectStyle(css) {
