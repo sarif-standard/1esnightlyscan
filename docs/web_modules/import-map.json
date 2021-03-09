@@ -9,6 +9,10 @@
     "azure-devops-ui/Icon": "./azure-devops-ui/Icon.js",
     "azure-devops-ui/Page": "./azure-devops-ui/Page.js",
     "azure-devops-ui/Spinner": "./azure-devops-ui/Spinner.js",
+    "dayjs": "./dayjs.js",
+    "dayjs/plugin/relativeTime": "./dayjs/plugin/relativeTime.js",
+    "dayjs/plugin/timezone": "./dayjs/plugin/timezone.js",
+    "dayjs/plugin/utc": "./dayjs/plugin/utc.js",
     "react": "./react.js",
     "react-dom": "./react-dom.js"
   }
