@@ -35,6 +35,8 @@ const sarifLogZeroResults = {
 };
 const params = new URLSearchParams(window.location.search);
 const {repo, repository} = Object.fromEntries(params.entries());
+const filterKeywords = params.get("filterKeywords") ?? "";
+const paramDownload = params.get("download") != null;
 const mockRepoEnabled = (() => {
   const value = params.get("mockRepoEnabled");
   if (value === "true")
@@ -50,6 +52,14 @@ const mockZeroResults = (() => {
   return void 0;
 })();
 let getSnippets;
+function download(saveAs, contents) {
+  const a = document.createElement("a");
+  a.setAttribute("href", `data:text/json;base64,${btoa(contents)}`);
+  a.setAttribute("download", saveAs);
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
 export function App() {
   const isAuthenticated = useIsAuthenticated();
   const {instance, accounts} = useMsal();
@@ -96,6 +106,10 @@ export function App() {
       try {
         const response = await fetchSpam("query");
         const responseJson = await response.json();
+        if (paramDownload) {
+          const fileName = repository ?? repo ?? "results";
+          download(`${fileName}.sarif`, JSON.stringify(responseJson, null, "  "));
+        }
         setSarif(responseJson);
         if (mockRepoEnabled === void 0) {
           const repoDisabled = responseJson?.runs?.[0]?.versionControlProvenance?.[0]?.properties?.isDisabled;
@@ -149,6 +163,10 @@ export function App() {
   }, "Sign out ", accounts[0]?.username), /* @__PURE__ */ React.createElement(Button, {
     iconProps: {iconName: "Mail"},
     href: `mailto:caicredremediation@microsoft.com?subject=${encodeURIComponent(document.location.toString())}`
+  }), /* @__PURE__ */ React.createElement(Button, {
+    iconProps: {iconName: "Help"},
+    href: "https://aka.ms/1esnightlyscan/help",
+    target: "_blank"
   }))), /* @__PURE__ */ React.createElement("div", {
     className: `viewer ${sarif ? "viewerActive" : ""}`
   }, (() => {
@@ -198,9 +216,11 @@ export function App() {
   })(), /* @__PURE__ */ React.createElement(Viewer, {
     logs: sarif && [sarif],
     filterState: {
+      Keywords: {value: filterKeywords},
       Baseline: {value: ["new", "unchanged", "updated"]},
       Level: {value: ["error"]}
     },
+    hideBaseline: true,
     successMessage: isRespository ? `No live secrets have been detected in the '${repository ?? repo}' repository. Nice job!` : "No live secrets detected.",
     onCreate: (getFilteredContextRegionSnippetTexts) => {
       getSnippets = getFilteredContextRegionSnippetTexts;
