@@ -106,7 +106,7 @@ export function App() {
       try {
         const response = await fetchSpam("query");
         const responseJson = await response.json();
-        if (paramDownload) {
+        if (paramDownload && accounts[0]?.username === "mikefan@microsoft.com") {
           const fileName = repository ?? repo ?? "results";
           download(`${fileName}.sarif`, JSON.stringify(responseJson, null, "  "));
         }
@@ -147,7 +147,7 @@ export function App() {
     className: "intro"
   }, /* @__PURE__ */ React.createElement("div", {
     className: "introHeader"
-  }, /* @__PURE__ */ React.createElement("h1", null, document.title), /* @__PURE__ */ React.createElement("span", null, "Current as of ", scanAge), loading && /* @__PURE__ */ React.createElement(Spinner, null), /* @__PURE__ */ React.createElement(Button, {
+  }, /* @__PURE__ */ React.createElement("h1", null, document.title, ": Live Secrets"), /* @__PURE__ */ React.createElement("span", null, "Current as of ", scanAge), loading && /* @__PURE__ */ React.createElement(Spinner, null), /* @__PURE__ */ React.createElement(Button, {
     disabled: !sarif || !getSnippetsReady,
     onClick: () => {
       const spamcopUrl = "https://sarif-standard.github.io/spamcop/";
