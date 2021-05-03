@@ -1,0 +1,54 @@
+.discussion .vss-Persona {
+  margin-top: 2px;
+  margin-right: 8px;
+}
+
+.comment {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+.comment .commentPerson {
+  margin-right: 8px;
+}
+.comment .secondary-text {
+  white-space: pre-wrap;
+}
+
+.discussion2 {
+  flex: 0 0 425px;
+  padding: 32px;
+  padding-left: 6px;
+}
+
+.meter {
+  height: 5px;
+  border-radius: 2.5px;
+  background: #0078D4;
+}
+.meter.meter-empty {
+  width: 20px;
+  background: #C8C8C8;
+}
+
+.personaStacking {
+  margin-left: -3px;
+}
+.personaStacking .vss-Persona-content {
+  box-shadow: 0px 0px 0px 1.5px white;
+}
+
+.zIndex-0 {
+  z-index: 0;
+}
+
+.zIndex-1 {
+  z-index: 1;
+}
+
+.zIndex-2 {
+  z-index: 2;
+}
+
+.width-150 {
+  width: 150px;
+}

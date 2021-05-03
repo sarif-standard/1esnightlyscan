@@ -1,4 +1,4 @@
-/*! @azure/msal-browser v2.11.2 2021-02-18 */
+/*! @azure/msal-browser v2.14.1 2021-04-22 */
 /*! *****************************************************************************
 Copyright (c) Microsoft Corporation.
 
@@ -100,7 +100,7 @@ function __spread() {
     return ar;
 }
 
-/*! @azure/msal-common v4.0.1 2021-02-18 */
+/*! @azure/msal-common v4.2.1 2021-04-22 */
 /*! *****************************************************************************
 Copyright (c) Microsoft Corporation.
 
@@ -242,11 +242,7 @@ var OIDC_SCOPES = __spreadArrays(OIDC_DEFAULT_SCOPES, [
 var HeaderNames;
 (function (HeaderNames) {
     HeaderNames["CONTENT_TYPE"] = "Content-Type";
-    HeaderNames["X_CLIENT_CURR_TELEM"] = "x-client-current-telemetry";
-    HeaderNames["X_CLIENT_LAST_TELEM"] = "x-client-last-telemetry";
     HeaderNames["RETRY_AFTER"] = "Retry-After";
-    HeaderNames["X_MS_LIB_CAPABILITY"] = "x-ms-lib-capability";
-    HeaderNames["X_MS_LIB_CAPABILITY_VALUE"] = "retry-after, h429";
 })(HeaderNames || (HeaderNames = {}));
 /**
  * Persistent cache keys MSAL which stay while user is logged in.
@@ -300,6 +296,9 @@ var AADServerParamKeys;
     AADServerParamKeys["X_CLIENT_VER"] = "x-client-VER";
     AADServerParamKeys["X_CLIENT_OS"] = "x-client-OS";
     AADServerParamKeys["X_CLIENT_CPU"] = "x-client-CPU";
+    AADServerParamKeys["X_CLIENT_CURR_TELEM"] = "x-client-current-telemetry";
+    AADServerParamKeys["X_CLIENT_LAST_TELEM"] = "x-client-last-telemetry";
+    AADServerParamKeys["X_MS_LIB_CAPABILITY"] = "x-ms-lib-capability";
     AADServerParamKeys["POST_LOGOUT_URI"] = "post_logout_redirect_uri";
     AADServerParamKeys["ID_TOKEN_HINT"] = "id_token_hint";
     AADServerParamKeys["DEVICE_CODE"] = "device_code";
@@ -408,6 +407,7 @@ var CredentialType;
 (function (CredentialType) {
     CredentialType["ID_TOKEN"] = "IdToken";
     CredentialType["ACCESS_TOKEN"] = "AccessToken";
+    CredentialType["ACCESS_TOKEN_WITH_AUTH_SCHEME"] = "AccessToken_With_AuthScheme";
     CredentialType["REFRESH_TOKEN"] = "RefreshToken";
 })(CredentialType || (CredentialType = {}));
 /**
@@ -459,7 +459,9 @@ var AuthorityMetadataSource;
 })(AuthorityMetadataSource || (AuthorityMetadataSource = {}));
 var SERVER_TELEM_CONSTANTS = {
     SCHEMA_VERSION: 2,
-    MAX_HEADER_BYTES: 4000,
+    MAX_CUR_HEADER_BYTES: 80,
+    MAX_LAST_HEADER_BYTES: 330,
+    MAX_CACHED_ERRORS: 50,
     CACHE_KEY: "server-telemetry",
     CATEGORY_SEPARATOR: "|",
     VALUE_SEPARATOR: ",",
@@ -484,7 +486,9 @@ var ThrottlingConstants = {
     // Default maximum time to throttle in seconds, overrides what the server sends back
     DEFAULT_MAX_THROTTLE_TIME_SECONDS: 3600,
     // Prefix for storing throttling entries
-    THROTTLING_PREFIX: "throttling"
+    THROTTLING_PREFIX: "throttling",
+    // Value assigned to the x-ms-lib-capability header to indicate to the server the library supports throttling
+    X_MS_LIB_CAPABILITY_VALUE: "retry-after, h429"
 };
 var Errors = {
     INVALID_GRANT_ERROR: "invalid_grant",
@@ -611,6 +615,10 @@ var ClientAuthErrorMessage = {
     endpointResolutionError: {
         code: "endpoints_resolution_error",
         desc: "Error: could not resolve endpoints. Please check network and try again."
+    },
+    networkError: {
+        code: "network_error",
+        desc: "Network request failed. Please check network trace to determine root cause."
     },
     unableToGetOpenidConfigError: {
         code: "openid_config_error",
@@ -747,7 +755,11 @@ var ClientAuthErrorMessage = {
     },
     noAuthorizationCodeFromServer: {
         code: "authorization_code_missing_from_server_response",
-        desc: "Srver response does not contain an authorization code to proceed"
+        desc: "Server response does not contain an authorization code to proceed"
+    },
+    accessTokenEntityNullError: {
+        code: "access_token_entity_null",
+        desc: "Access token entity is null, please check logs and cache to ensure a valid access token is present."
     }
 };
 /**
@@ -794,6 +806,12 @@ var ClientAuthError = /** @class */ (function (_super) {
      */
     ClientAuthError.createEndpointDiscoveryIncompleteError = function (errDetail) {
         return new ClientAuthError(ClientAuthErrorMessage.endpointResolutionError.code, ClientAuthErrorMessage.endpointResolutionError.desc + " Detail: " + errDetail);
+    };
+    /**
+     * Creates an error thrown when the fetch client throws
+     */
+    ClientAuthError.createNetworkError = function (endpoint, errDetail) {
+        return new ClientAuthError(ClientAuthErrorMessage.networkError.code, ClientAuthErrorMessage.networkError.desc + " | Fetch client threw: " + errDetail + " | Attempted to reach: " + endpoint.split("?")[0]);
     };
     /**
      * Creates an error thrown when the openid-configuration endpoint cannot be reached or does not contain the required data
@@ -1002,6 +1020,12 @@ var ClientAuthError = /** @class */ (function (_super) {
     ClientAuthError.createNoAuthCodeInServerResponseError = function () {
         return new ClientAuthError(ClientAuthErrorMessage.noAuthorizationCodeFromServer.code, ClientAuthErrorMessage.noAuthorizationCodeFromServer.desc);
     };
+    /**
+     * Throws error when access token entity is null when handling a response.
+     */
+    ClientAuthError.createAccessTokenEntityNullError = function () {
+        return new ClientAuthError(ClientAuthErrorMessage.accessTokenEntityNullError.code, ClientAuthErrorMessage.accessTokenEntityNullError.desc);
+    };
     return ClientAuthError;
 }(AuthError));
 
@@ -1098,13 +1122,16 @@ var StringUtils = /** @class */ (function () {
         }
     };
     /**
-     * Tests if a given string matches a given pattern, with support for wildcards.
-     * @param pattern Wildcard pattern to string match. Supports "*" for wildcards
+     * Tests if a given string matches a given pattern, with support for wildcards and queries.
+     * @param pattern Wildcard pattern to string match. Supports "*" for wildcards and "?" for queries
      * @param input String to match against
      */
     StringUtils.matchPattern = function (pattern, input) {
-        // https://stackoverflow.com/a/3117248/4888559
-        var regex = new RegExp(pattern.replace(/\*/g, "[^ ]*"));
+        /**
+         * Wildcard support: https://stackoverflow.com/a/3117248/4888559
+         * Queries: replaces "?" in string with escaped "\?" for regex test
+         */
+        var regex = new RegExp(pattern.replace(/\*/g, "[^ ]*").replace(/\?/g, "\\\?"));
         return regex.test(input);
     };
     return StringUtils;
@@ -1256,7 +1283,7 @@ var Logger = /** @class */ (function () {
 
 /* eslint-disable header/header */
 var name = "@azure/msal-common";
-var version = "4.0.1";
+var version = "4.2.1";
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -1330,7 +1357,12 @@ var CredentialEntity = /** @class */ (function () {
      * @param key
      */
     CredentialEntity.getCredentialType = function (key) {
+        // First keyword search will match all "AccessToken" and "AccessToken_With_AuthScheme" credentials
         if (key.indexOf(CredentialType.ACCESS_TOKEN.toLowerCase()) !== -1) {
+            // Perform second search to differentiate between "AccessToken" and "AccessToken_With_AuthScheme" credential types
+            if (key.indexOf(CredentialType.ACCESS_TOKEN_WITH_AUTH_SCHEME.toLowerCase()) !== -1) {
+                return CredentialType.ACCESS_TOKEN_WITH_AUTH_SCHEME;
+            }
             return CredentialType.ACCESS_TOKEN;
         }
         else if (key.indexOf(CredentialType.ID_TOKEN.toLowerCase()) !== -1) {
@@ -1467,10 +1499,6 @@ var ClientConfigurationErrorMessage = {
     untrustedAuthority: {
         code: "untrusted_authority",
         desc: "The provided authority is not a trusted authority. Please include this authority in the knownAuthorities config parameter."
-    },
-    resourceRequestParametersRequired: {
-        code: "resourceRequest_parameters_required",
-        desc: "resourceRequestMethod and resourceRequestUri are required"
     }
 };
 /**
@@ -1598,12 +1626,6 @@ var ClientConfigurationError = /** @class */ (function (_super) {
      */
     ClientConfigurationError.createUntrustedAuthorityError = function () {
         return new ClientConfigurationError(ClientConfigurationErrorMessage.untrustedAuthority.code, ClientConfigurationErrorMessage.untrustedAuthority.desc);
-    };
-    /**
-     * Throws error when resourceRequestMethod or resourceRequestUri is missing
-     */
-    ClientConfigurationError.createResourceRequestParametersRequiredError = function () {
-        return new ClientConfigurationError(ClientConfigurationErrorMessage.resourceRequestParametersRequired.code, ClientConfigurationErrorMessage.resourceRequestParametersRequired.desc);
     };
     return ClientConfigurationError;
 }(ClientAuthError));
@@ -2149,7 +2171,7 @@ var CacheManager = /** @class */ (function () {
         var _this = this;
         var currentTokenCache = this.getCredentialsFilteredBy({
             clientId: credential.clientId,
-            credentialType: CredentialType.ACCESS_TOKEN,
+            credentialType: credential.credentialType,
             environment: credential.environment,
             homeAccountId: credential.homeAccountId,
             realm: credential.realm,
@@ -2278,6 +2300,7 @@ var CacheManager = /** @class */ (function () {
                     matchingCredentials.idTokens[cacheKey] = entity;
                     break;
                 case CredentialType.ACCESS_TOKEN:
+                case CredentialType.ACCESS_TOKEN_WITH_AUTH_SCHEME:
                     matchingCredentials.accessTokens[cacheKey] = entity;
                     break;
                 case CredentialType.REFRESH_TOKEN:
@@ -2422,11 +2445,12 @@ var CacheManager = /** @class */ (function () {
      * @param clientId
      * @param scopes
      * @param environment
+     * @param authScheme
      */
-    CacheManager.prototype.readCacheRecord = function (account, clientId, scopes, environment) {
+    CacheManager.prototype.readCacheRecord = function (account, clientId, scopes, environment, authScheme) {
         var cachedAccount = this.readAccountFromCache(account);
         var cachedIdToken = this.readIdTokenFromCache(clientId, account);
-        var cachedAccessToken = this.readAccessTokenFromCache(clientId, account, scopes);
+        var cachedAccessToken = this.readAccessTokenFromCache(clientId, account, scopes, authScheme);
         var cachedRefreshToken = this.readRefreshTokenFromCache(clientId, account, false);
         var cachedAppMetadata = this.readAppMetadataFromCache(environment, clientId);
         if (cachedAccount && cachedIdToken) {
@@ -2478,13 +2502,14 @@ var CacheManager = /** @class */ (function () {
      * @param clientId
      * @param account
      * @param scopes
-     * @param inputRealm
+     * @param authScheme
      */
-    CacheManager.prototype.readAccessTokenFromCache = function (clientId, account, scopes) {
+    CacheManager.prototype.readAccessTokenFromCache = function (clientId, account, scopes, authScheme) {
+        var credentialType = (authScheme === AuthenticationScheme.POP) ? CredentialType.ACCESS_TOKEN_WITH_AUTH_SCHEME : CredentialType.ACCESS_TOKEN;
         var accessTokenFilter = {
             homeAccountId: account.homeAccountId,
             environment: account.environment,
-            credentialType: CredentialType.ACCESS_TOKEN,
+            credentialType: credentialType,
             clientId: clientId,
             realm: account.tenantId,
             target: scopes.printScopesLowerCase(),
@@ -2618,13 +2643,17 @@ var CacheManager = /** @class */ (function () {
      * @param target
      */
     CacheManager.prototype.matchTarget = function (entity, target) {
-        if (entity.credentialType !== CredentialType.ACCESS_TOKEN || !entity.target) {
+        var isNotAccessTokenCredential = (entity.credentialType !== CredentialType.ACCESS_TOKEN && entity.credentialType !== CredentialType.ACCESS_TOKEN_WITH_AUTH_SCHEME);
+        if (isNotAccessTokenCredential || !entity.target) {
             return false;
         }
         var entityScopeSet = ScopeSet.fromString(entity.target);
         var requestTargetScopeSet = ScopeSet.fromString(target);
         if (!requestTargetScopeSet.containsOnlyOIDCScopes()) {
             requestTargetScopeSet.removeOIDCScopes(); // ignore OIDC scopes
+        }
+        else {
+            requestTargetScopeSet.removeScope(Constants.OFFLINE_ACCESS_SCOPE);
         }
         return entityScopeSet.containsScopeSet(requestTargetScopeSet);
     };
@@ -2658,7 +2687,8 @@ var CacheManager = /** @class */ (function () {
             case CredentialType.ID_TOKEN: {
                 return this.getIdTokenCredential(key);
             }
-            case CredentialType.ACCESS_TOKEN: {
+            case CredentialType.ACCESS_TOKEN:
+            case CredentialType.ACCESS_TOKEN_WITH_AUTH_SCHEME: {
                 return this.getAccessTokenCredential(key);
             }
             case CredentialType.REFRESH_TOKEN: {
@@ -2975,16 +3005,28 @@ var NetworkManager = /** @class */ (function () {
      */
     NetworkManager.prototype.sendPostRequest = function (thumbprint, tokenEndpoint, options) {
         return __awaiter$1(this, void 0, void 0, function () {
-            var response;
+            var response, e_1;
             return __generator$1(this, function (_a) {
                 switch (_a.label) {
                     case 0:
                         ThrottlingUtils.preProcess(this.cacheManager, thumbprint);
-                        return [4 /*yield*/, this.networkClient.sendPostRequestAsync(tokenEndpoint, options)];
+                        _a.label = 1;
                     case 1:
+                        _a.trys.push([1, 3, , 4]);
+                        return [4 /*yield*/, this.networkClient.sendPostRequestAsync(tokenEndpoint, options)];
+                    case 2:
                         response = _a.sent();
+                        return [3 /*break*/, 4];
+                    case 3:
+                        e_1 = _a.sent();
+                        if (e_1 instanceof AuthError) {
+                            throw e_1;
+                        }
+                        else {
+                            throw ClientAuthError.createNetworkError(tokenEndpoint, e_1);
+                        }
+                    case 4:
                         ThrottlingUtils.postProcess(this.cacheManager, thumbprint, response);
-                        // Placeholder for Telemetry hook
                         return [2 /*return*/, response];
                 }
             });
@@ -3023,25 +3065,8 @@ var BaseClient = /** @class */ (function () {
      * Creates default headers for requests to token endpoint
      */
     BaseClient.prototype.createDefaultTokenRequestHeaders = function () {
-        var headers = this.createDefaultLibraryHeaders();
-        headers[HeaderNames.CONTENT_TYPE] = Constants.URL_FORM_CONTENT_TYPE;
-        headers[HeaderNames.X_MS_LIB_CAPABILITY] = HeaderNames.X_MS_LIB_CAPABILITY_VALUE;
-        if (this.serverTelemetryManager) {
-            headers[HeaderNames.X_CLIENT_CURR_TELEM] = this.serverTelemetryManager.generateCurrentRequestHeaderValue();
-            headers[HeaderNames.X_CLIENT_LAST_TELEM] = this.serverTelemetryManager.generateLastRequestHeaderValue();
-        }
-        return headers;
-    };
-    /**
-     * addLibraryData
-     */
-    BaseClient.prototype.createDefaultLibraryHeaders = function () {
         var headers = {};
-        // client info headers
-        headers[AADServerParamKeys.X_CLIENT_SKU] = this.config.libraryInfo.sku;
-        headers[AADServerParamKeys.X_CLIENT_VER] = this.config.libraryInfo.version;
-        headers[AADServerParamKeys.X_CLIENT_OS] = this.config.libraryInfo.os;
-        headers[AADServerParamKeys.X_CLIENT_CPU] = this.config.libraryInfo.cpu;
+        headers[HeaderNames.CONTENT_TYPE] = Constants.URL_FORM_CONTENT_TYPE;
         return headers;
     };
     /**
@@ -3455,6 +3480,20 @@ var RequestParameterBuilder = /** @class */ (function () {
         }
     };
     /**
+     * add server telemetry fields
+     * @param serverTelemetryManager
+     */
+    RequestParameterBuilder.prototype.addServerTelemetry = function (serverTelemetryManager) {
+        this.parameters.set(AADServerParamKeys.X_CLIENT_CURR_TELEM, serverTelemetryManager.generateCurrentRequestHeaderValue());
+        this.parameters.set(AADServerParamKeys.X_CLIENT_LAST_TELEM, serverTelemetryManager.generateLastRequestHeaderValue());
+    };
+    /**
+     * Adds parameter that indicates to the server that throttling is supported
+     */
+    RequestParameterBuilder.prototype.addThrottling = function () {
+        this.parameters.set(AADServerParamKeys.X_MS_LIB_CAPABILITY, ThrottlingConstants.X_MS_LIB_CAPABILITY_VALUE);
+    };
+    /**
      * Utility to create a URL from the params map
      */
     RequestParameterBuilder.prototype.createQueryString = function () {
@@ -3605,7 +3644,8 @@ var AccessTokenEntity = /** @class */ (function (_super) {
      * @param expiresOn
      * @param extExpiresOn
      */
-    AccessTokenEntity.createAccessTokenEntity = function (homeAccountId, environment, accessToken, clientId, tenantId, scopes, expiresOn, extExpiresOn, tokenType, oboAssertion) {
+    AccessTokenEntity.createAccessTokenEntity = function (homeAccountId, environment, accessToken, clientId, tenantId, scopes, expiresOn, extExpiresOn, cryptoUtils, refreshOn, tokenType, oboAssertion) {
+        var _a;
         var atEntity = new AccessTokenEntity();
         atEntity.homeAccountId = homeAccountId;
         atEntity.credentialType = CredentialType.ACCESS_TOKEN;
@@ -3618,12 +3658,25 @@ var AccessTokenEntity = /** @class */ (function (_super) {
          */
         atEntity.expiresOn = expiresOn.toString();
         atEntity.extendedExpiresOn = extExpiresOn.toString();
+        if (refreshOn) {
+            atEntity.refreshOn = refreshOn.toString();
+        }
         atEntity.environment = environment;
         atEntity.clientId = clientId;
         atEntity.realm = tenantId;
         atEntity.target = scopes;
         atEntity.oboAssertion = oboAssertion;
         atEntity.tokenType = StringUtils.isEmpty(tokenType) ? AuthenticationScheme.BEARER : tokenType;
+        // Create Access Token With AuthScheme instead of regular access token
+        if (atEntity.tokenType === AuthenticationScheme.POP) {
+            atEntity.credentialType = CredentialType.ACCESS_TOKEN_WITH_AUTH_SCHEME;
+            // Make sure keyId is present and add it to credential
+            var tokenClaims = AuthToken.extractTokenClaims(accessToken, cryptoUtils);
+            if (!((_a = tokenClaims === null || tokenClaims === void 0 ? void 0 : tokenClaims.cnf) === null || _a === void 0 ? void 0 : _a.kid)) {
+                throw ClientAuthError.createTokenClaimsRequiredError();
+            }
+            atEntity.keyId = tokenClaims.cnf.kid;
+        }
         return atEntity;
     };
     /**
@@ -3641,7 +3694,7 @@ var AccessTokenEntity = /** @class */ (function (_super) {
             entity.hasOwnProperty("clientId") &&
             entity.hasOwnProperty("secret") &&
             entity.hasOwnProperty("target") &&
-            entity["credentialType"] === CredentialType.ACCESS_TOKEN);
+            (entity["credentialType"] === CredentialType.ACCESS_TOKEN || entity["credentialType"] === CredentialType.ACCESS_TOKEN_WITH_AUTH_SCHEME));
     };
     return AccessTokenEntity;
 }(CredentialEntity));
@@ -4047,12 +4100,12 @@ var PopTokenGenerator = /** @class */ (function () {
     function PopTokenGenerator(cryptoUtils) {
         this.cryptoUtils = cryptoUtils;
     }
-    PopTokenGenerator.prototype.generateCnf = function (resourceRequestMethod, resourceRequestUri) {
+    PopTokenGenerator.prototype.generateCnf = function (request) {
         return __awaiter$1(this, void 0, void 0, function () {
             var kidThumbprint, reqCnf;
             return __generator$1(this, function (_a) {
                 switch (_a.label) {
-                    case 0: return [4 /*yield*/, this.cryptoUtils.getPublicKeyThumbprint(resourceRequestMethod, resourceRequestUri)];
+                    case 0: return [4 /*yield*/, this.cryptoUtils.getPublicKeyThumbprint(request)];
                     case 1:
                         kidThumbprint = _a.sent();
                         reqCnf = {
@@ -4064,27 +4117,29 @@ var PopTokenGenerator = /** @class */ (function () {
             });
         });
     };
-    PopTokenGenerator.prototype.signPopToken = function (accessToken, resourceRequestMethod, resourceRequestUri) {
+    PopTokenGenerator.prototype.signPopToken = function (accessToken, request) {
         var _a;
         return __awaiter$1(this, void 0, void 0, function () {
-            var tokenClaims, resourceUrlString, resourceUrlComponents;
+            var tokenClaims, resourceRequestMethod, resourceRequestUri, shrClaims, resourceUrlString, resourceUrlComponents;
             return __generator$1(this, function (_b) {
                 switch (_b.label) {
                     case 0:
                         tokenClaims = AuthToken.extractTokenClaims(accessToken, this.cryptoUtils);
-                        resourceUrlString = new UrlString(resourceRequestUri);
-                        resourceUrlComponents = resourceUrlString.getUrlComponents();
+                        resourceRequestMethod = request.resourceRequestMethod, resourceRequestUri = request.resourceRequestUri, shrClaims = request.shrClaims;
+                        resourceUrlString = (resourceRequestUri) ? new UrlString(resourceRequestUri) : undefined;
+                        resourceUrlComponents = resourceUrlString === null || resourceUrlString === void 0 ? void 0 : resourceUrlString.getUrlComponents();
                         if (!((_a = tokenClaims === null || tokenClaims === void 0 ? void 0 : tokenClaims.cnf) === null || _a === void 0 ? void 0 : _a.kid)) {
                             throw ClientAuthError.createTokenClaimsRequiredError();
                         }
                         return [4 /*yield*/, this.cryptoUtils.signJwt({
                                 at: accessToken,
-                                ts: "" + TimeUtils.nowSeconds(),
-                                m: resourceRequestMethod.toUpperCase(),
-                                u: resourceUrlComponents.HostNameAndPort || "",
+                                ts: TimeUtils.nowSeconds(),
+                                m: resourceRequestMethod === null || resourceRequestMethod === void 0 ? void 0 : resourceRequestMethod.toUpperCase(),
+                                u: resourceUrlComponents === null || resourceUrlComponents === void 0 ? void 0 : resourceUrlComponents.HostNameAndPort,
                                 nonce: this.cryptoUtils.createNewGuid(),
-                                p: resourceUrlComponents.AbsolutePath,
-                                q: [[], resourceUrlComponents.QueryString],
+                                p: resourceUrlComponents === null || resourceUrlComponents === void 0 ? void 0 : resourceUrlComponents.AbsolutePath,
+                                q: (resourceUrlComponents === null || resourceUrlComponents === void 0 ? void 0 : resourceUrlComponents.QueryString) ? [[], resourceUrlComponents.QueryString] : undefined,
+                                client_claims: shrClaims || undefined
                             }, tokenClaims.cnf.kid)];
                     case 1: return [2 /*return*/, _b.sent()];
                 }
@@ -4248,7 +4303,7 @@ var ResponseHandler = /** @class */ (function () {
                 throw new InteractionRequiredAuthError(serverResponse.error, serverResponse.error_description, serverResponse.suberror);
             }
             var errString = serverResponse.error_codes + " - [" + serverResponse.timestamp + "]: " + serverResponse.error_description + " - Correlation ID: " + serverResponse.correlation_id + " - Trace ID: " + serverResponse.trace_id;
-            throw new ServerError(serverResponse.error, errString);
+            throw new ServerError(serverResponse.error, errString, serverResponse.suberror);
         }
     };
     /**
@@ -4256,7 +4311,7 @@ var ResponseHandler = /** @class */ (function () {
      * @param serverTokenResponse
      * @param authority
      */
-    ResponseHandler.prototype.handleServerTokenResponse = function (serverTokenResponse, authority, reqTimestamp, resourceRequestMethod, resourceRequestUri, authCodePayload, requestScopes, oboAssertion, handlingRefreshTokenResponse) {
+    ResponseHandler.prototype.handleServerTokenResponse = function (serverTokenResponse, authority, reqTimestamp, request, authCodePayload, oboAssertion, handlingRefreshTokenResponse) {
         return __awaiter$1(this, void 0, void 0, function () {
             var idTokenObj, requestStateObj, cacheRecord, cacheContext, key, account;
             return __generator$1(this, function (_a) {
@@ -4276,7 +4331,7 @@ var ResponseHandler = /** @class */ (function () {
                         if (!!authCodePayload && !!authCodePayload.state) {
                             requestStateObj = ProtocolUtils.parseRequestState(this.cryptoObj, authCodePayload.state);
                         }
-                        cacheRecord = this.generateCacheRecord(serverTokenResponse, authority, reqTimestamp, idTokenObj, requestScopes, oboAssertion, authCodePayload);
+                        cacheRecord = this.generateCacheRecord(serverTokenResponse, authority, reqTimestamp, idTokenObj, request.scopes, oboAssertion, authCodePayload);
                         _a.label = 1;
                     case 1:
                         _a.trys.push([1, , 4, 7]);
@@ -4298,7 +4353,7 @@ var ResponseHandler = /** @class */ (function () {
                             account = this.cacheStorage.getAccount(key);
                             if (!account) {
                                 this.logger.warning("Account used to refresh tokens not in persistence, refreshed tokens will not be stored in the cache");
-                                return [2 /*return*/, ResponseHandler.generateAuthenticationResult(this.cryptoObj, authority, cacheRecord, false, idTokenObj, requestStateObj, resourceRequestMethod, resourceRequestUri)];
+                                return [2 /*return*/, ResponseHandler.generateAuthenticationResult(this.cryptoObj, authority, cacheRecord, false, request, idTokenObj, requestStateObj)];
                             }
                         }
                         this.cacheStorage.saveCacheRecord(cacheRecord);
@@ -4311,7 +4366,7 @@ var ResponseHandler = /** @class */ (function () {
                         _a.sent();
                         _a.label = 6;
                     case 6: return [7 /*endfinally*/];
-                    case 7: return [2 /*return*/, ResponseHandler.generateAuthenticationResult(this.cryptoObj, authority, cacheRecord, false, idTokenObj, requestStateObj, resourceRequestMethod, resourceRequestUri)];
+                    case 7: return [2 /*return*/, ResponseHandler.generateAuthenticationResult(this.cryptoObj, authority, cacheRecord, false, request, idTokenObj, requestStateObj)];
                 }
             });
         });
@@ -4339,11 +4394,18 @@ var ResponseHandler = /** @class */ (function () {
         if (!StringUtils.isEmpty(serverTokenResponse.access_token)) {
             // If scopes not returned in server response, use request scopes
             var responseScopes = serverTokenResponse.scope ? ScopeSet.fromString(serverTokenResponse.scope) : new ScopeSet(requestScopes || []);
-            // Use timestamp calculated before request
-            var tokenExpirationSeconds = reqTimestamp + (serverTokenResponse.expires_in || 0);
-            var extendedTokenExpirationSeconds = tokenExpirationSeconds + (serverTokenResponse.ext_expires_in || 0);
+            /*
+             * Use timestamp calculated before request
+             * Server may return timestamps as strings, parse to numbers if so.
+             */
+            var expiresIn = (typeof serverTokenResponse.expires_in === "string" ? parseInt(serverTokenResponse.expires_in, 10) : serverTokenResponse.expires_in) || 0;
+            var extExpiresIn = (typeof serverTokenResponse.ext_expires_in === "string" ? parseInt(serverTokenResponse.ext_expires_in, 10) : serverTokenResponse.ext_expires_in) || 0;
+            var refreshIn = (typeof serverTokenResponse.refresh_in === "string" ? parseInt(serverTokenResponse.refresh_in, 10) : serverTokenResponse.refresh_in) || undefined;
+            var tokenExpirationSeconds = reqTimestamp + expiresIn;
+            var extendedTokenExpirationSeconds = tokenExpirationSeconds + extExpiresIn;
+            var refreshOnSeconds = refreshIn && refreshIn > 0 ? reqTimestamp + refreshIn : undefined;
             // non AAD scenarios can have empty realm
-            cachedAccessToken = AccessTokenEntity.createAccessTokenEntity(this.homeAccountIdentifier, env, serverTokenResponse.access_token || Constants.EMPTY_STRING, this.clientId, idTokenObj ? idTokenObj.claims.tid || Constants.EMPTY_STRING : authority.tenant, responseScopes.printScopes(), tokenExpirationSeconds, extendedTokenExpirationSeconds, serverTokenResponse.token_type, oboAssertion);
+            cachedAccessToken = AccessTokenEntity.createAccessTokenEntity(this.homeAccountIdentifier, env, serverTokenResponse.access_token || Constants.EMPTY_STRING, this.clientId, idTokenObj ? idTokenObj.claims.tid || Constants.EMPTY_STRING : authority.tenant, responseScopes.printScopes(), tokenExpirationSeconds, extendedTokenExpirationSeconds, this.cryptoObj, refreshOnSeconds, serverTokenResponse.token_type, oboAssertion);
         }
         // refreshToken
         var cachedRefreshToken = null;
@@ -4390,7 +4452,7 @@ var ResponseHandler = /** @class */ (function () {
      * @param fromTokenCache
      * @param stateString
      */
-    ResponseHandler.generateAuthenticationResult = function (cryptoObj, authority, cacheRecord, fromTokenCache, idTokenObj, requestState, resourceRequestMethod, resourceRequestUri) {
+    ResponseHandler.generateAuthenticationResult = function (cryptoObj, authority, cacheRecord, fromTokenCache, request, idTokenObj, requestState) {
         var _a, _b, _c;
         return __awaiter$1(this, void 0, void 0, function () {
             var accessToken, responseScopes, expiresOn, extExpiresOn, familyId, popTokenGenerator, uid, tid;
@@ -4399,15 +4461,11 @@ var ResponseHandler = /** @class */ (function () {
                     case 0:
                         accessToken = "";
                         responseScopes = [];
-                        expiresOn = null;
                         familyId = Constants.EMPTY_STRING;
                         if (!cacheRecord.accessToken) return [3 /*break*/, 4];
                         if (!(cacheRecord.accessToken.tokenType === AuthenticationScheme.POP)) return [3 /*break*/, 2];
                         popTokenGenerator = new PopTokenGenerator(cryptoObj);
-                        if (!resourceRequestMethod || !resourceRequestUri) {
-                            throw ClientConfigurationError.createResourceRequestParametersRequiredError();
-                        }
-                        return [4 /*yield*/, popTokenGenerator.signPopToken(cacheRecord.accessToken.secret, resourceRequestMethod, resourceRequestUri)];
+                        return [4 /*yield*/, popTokenGenerator.signPopToken(cacheRecord.accessToken.secret, request)];
                     case 1:
                         accessToken = _d.sent();
                         return [3 /*break*/, 3];
@@ -4418,8 +4476,9 @@ var ResponseHandler = /** @class */ (function () {
                         responseScopes = ScopeSet.fromString(cacheRecord.accessToken.target).asArray();
                         expiresOn = new Date(Number(cacheRecord.accessToken.expiresOn) * 1000);
                         extExpiresOn = new Date(Number(cacheRecord.accessToken.extendedExpiresOn) * 1000);
-                        _d.label = 4;
-                    case 4:
+                        return [3 /*break*/, 5];
+                    case 4: throw ClientAuthError.createAccessTokenEntityNullError();
+                    case 5:
                         if (cacheRecord.appMetadata) {
                             familyId = cacheRecord.appMetadata.familyId === THE_FAMILY_ID ? THE_FAMILY_ID : Constants.EMPTY_STRING;
                         }
@@ -4503,7 +4562,7 @@ var AuthorizationCodeClient = /** @class */ (function (_super) {
                         responseHandler = new ResponseHandler(this.config.authOptions.clientId, this.cacheManager, this.cryptoUtils, this.logger, this.config.serializableCache, this.config.persistencePlugin);
                         // Validate response. This function throws a server error if an error is returned by the server.
                         responseHandler.validateTokenResponse(response.body);
-                        return [4 /*yield*/, responseHandler.handleServerTokenResponse(response.body, this.authority, reqTimestamp, request.resourceRequestMethod, request.resourceRequestUri, authCodePayload)];
+                        return [4 /*yield*/, responseHandler.handleServerTokenResponse(response.body, this.authority, reqTimestamp, request, authCodePayload)];
                     case 2: return [2 /*return*/, _a.sent()];
                 }
             });
@@ -4560,7 +4619,7 @@ var AuthorizationCodeClient = /** @class */ (function (_super) {
      */
     AuthorizationCodeClient.prototype.executeTokenRequest = function (authority, request) {
         return __awaiter$1(this, void 0, void 0, function () {
-            var thumbprint, requestBody, headers;
+            var thumbprint, requestBody, queryParameters, headers, endpoint;
             return __generator$1(this, function (_a) {
                 switch (_a.label) {
                     case 0:
@@ -4572,11 +4631,24 @@ var AuthorizationCodeClient = /** @class */ (function (_super) {
                         return [4 /*yield*/, this.createTokenRequestBody(request)];
                     case 1:
                         requestBody = _a.sent();
+                        queryParameters = this.createTokenQueryParameters(request);
                         headers = this.createDefaultTokenRequestHeaders();
-                        return [2 /*return*/, this.executePostToTokenEndpoint(authority.tokenEndpoint, requestBody, headers, thumbprint)];
+                        endpoint = StringUtils.isEmpty(queryParameters) ? authority.tokenEndpoint : authority.tokenEndpoint + "?" + queryParameters;
+                        return [2 /*return*/, this.executePostToTokenEndpoint(endpoint, requestBody, headers, thumbprint)];
                 }
             });
         });
+    };
+    /**
+     * Creates query string for the /token request
+     * @param request
+     */
+    AuthorizationCodeClient.prototype.createTokenQueryParameters = function (request) {
+        var parameterBuilder = new RequestParameterBuilder();
+        if (request.tokenQueryParameters) {
+            parameterBuilder.addExtraQueryParameters(request.tokenQueryParameters);
+        }
+        return parameterBuilder.createQueryString();
     };
     /**
      * Generates a map for all the params to be sent to the service
@@ -4596,6 +4668,12 @@ var AuthorizationCodeClient = /** @class */ (function (_super) {
                         parameterBuilder.addScopes(request.scopes);
                         // add code: user set, not validated
                         parameterBuilder.addAuthorizationCode(request.code);
+                        // Add library metadata
+                        parameterBuilder.addLibraryInfo(this.config.libraryInfo);
+                        parameterBuilder.addThrottling();
+                        if (this.serverTelemetryManager) {
+                            parameterBuilder.addServerTelemetry(this.serverTelemetryManager);
+                        }
                         // add code_verifier if passed
                         if (request.codeVerifier) {
                             parameterBuilder.addCodeVerifier(request.codeVerifier);
@@ -4610,9 +4688,9 @@ var AuthorizationCodeClient = /** @class */ (function (_super) {
                         }
                         parameterBuilder.addGrantType(GrantType.AUTHORIZATION_CODE_GRANT);
                         parameterBuilder.addClientInfo();
-                        if (!(request.authenticationScheme === AuthenticationScheme.POP && !!request.resourceRequestMethod && !!request.resourceRequestUri)) return [3 /*break*/, 2];
+                        if (!(request.authenticationScheme === AuthenticationScheme.POP)) return [3 /*break*/, 2];
                         popTokenGenerator = new PopTokenGenerator(this.cryptoUtils);
-                        return [4 /*yield*/, popTokenGenerator.generateCnf(request.resourceRequestMethod, request.resourceRequestUri)];
+                        return [4 /*yield*/, popTokenGenerator.generateCnf(request)];
                     case 1:
                         cnfString = _a.sent();
                         parameterBuilder.addPopToken(cnfString);
@@ -4660,14 +4738,38 @@ var AuthorizationCodeClient = /** @class */ (function (_super) {
             parameterBuilder.addDomainHint(request.domainHint);
         }
         // Add sid or loginHint with preference for sid -> loginHint -> username of AccountInfo object
-        if (request.sid) {
-            parameterBuilder.addSid(request.sid);
+        if (request.prompt !== PromptValue.SELECT_ACCOUNT) {
+            // AAD will throw if prompt=select_account is passed with an account hint
+            if (request.sid && request.prompt === PromptValue.NONE) {
+                // SessionID is only used in silent calls
+                this.logger.verbose("createAuthCodeUrlQueryString: Prompt is none, adding sid from request");
+                parameterBuilder.addSid(request.sid);
+            }
+            else if (request.account) {
+                var accountSid = this.extractAccountSid(request.account);
+                // If account and loginHint are provided, we will check account first for sid before adding loginHint
+                if (accountSid && request.prompt === PromptValue.NONE) {
+                    // SessionId is only used in silent calls
+                    this.logger.verbose("createAuthCodeUrlQueryString: Prompt is none, adding sid from account");
+                    parameterBuilder.addSid(accountSid);
+                }
+                else if (request.loginHint) {
+                    this.logger.verbose("createAuthCodeUrlQueryString: Adding login_hint from request");
+                    parameterBuilder.addLoginHint(request.loginHint);
+                }
+                else if (request.account.username) {
+                    // Fallback to account username if provided
+                    this.logger.verbose("createAuthCodeUrlQueryString: Adding login_hint from account");
+                    parameterBuilder.addLoginHint(request.account.username);
+                }
+            }
+            else if (request.loginHint) {
+                this.logger.verbose("createAuthCodeUrlQueryString: No account, adding login_hint from request");
+                parameterBuilder.addLoginHint(request.loginHint);
+            }
         }
-        else if (request.loginHint) {
-            parameterBuilder.addLoginHint(request.loginHint);
-        }
-        else if (request.account && request.account.username) {
-            parameterBuilder.addLoginHint(request.account.username);
+        else {
+            this.logger.verbose("createAuthCodeUrlQueryString: Prompt is select_account, ignoring account hints");
         }
         if (request.nonce) {
             parameterBuilder.addNonce(request.nonce);
@@ -4699,6 +4801,17 @@ var AuthorizationCodeClient = /** @class */ (function (_super) {
             parameterBuilder.addIdTokenHint(request.idTokenHint);
         }
         return parameterBuilder.createQueryString();
+    };
+    /**
+     * Helper to get sid from account. Returns null if idTokenClaims are not present or sid is not present.
+     * @param account
+     */
+    AuthorizationCodeClient.prototype.extractAccountSid = function (account) {
+        if (account.idTokenClaims) {
+            var tokenClaims = account.idTokenClaims;
+            return tokenClaims.sid || null;
+        }
+        return null;
     };
     return AuthorizationCodeClient;
 }(BaseClient));
@@ -4736,7 +4849,7 @@ var AuthorizationCodeClient = /** @class */ (function (_super) {
                         responseHandler = new ResponseHandler(this.config.authOptions.clientId, this.cacheManager, this.cryptoUtils, this.logger, this.config.serializableCache, this.config.persistencePlugin);
                         // Validate response. This function throws a server error if an error is returned by the server.
                         responseHandler.validateTokenResponse(response);
-                        return [4 /*yield*/, responseHandler.handleServerTokenResponse(response, this.authority, reqTimestamp, request.resourceRequestMethod, request.resourceRequestUri)];
+                        return [4 /*yield*/, responseHandler.handleServerTokenResponse(response, this.authority, reqTimestamp, request)];
                     case 3: return [2 /*return*/, _a.sent()];
                 }
             });
@@ -4895,6 +5008,11 @@ var AuthorizationCodeClient = /** @class */ (function (_super) {
         var correlationId = request.correlationId || this.config.cryptoInterface.createNewGuid();
         requestParameters.addCorrelationId(correlationId);
         requestParameters.addClientInfo();
+        requestParameters.addLibraryInfo(this.config.libraryInfo);
+        requestParameters.addThrottling();
+        if (this.serverTelemetryManager) {
+            requestParameters.addServerTelemetry(this.serverTelemetryManager);
+        }
         if (!StringUtils.isEmpty(request.claims) || this.config.authOptions.clientCapabilities && this.config.authOptions.clientCapabilities.length > 0) {
             requestParameters.addClaims(request.claims, this.config.authOptions.clientCapabilities);
         }
@@ -4927,7 +5045,7 @@ var RefreshTokenClient = /** @class */ (function (_super) {
                         response = _a.sent();
                         responseHandler = new ResponseHandler(this.config.authOptions.clientId, this.cacheManager, this.cryptoUtils, this.logger, this.config.serializableCache, this.config.persistencePlugin);
                         responseHandler.validateTokenResponse(response.body);
-                        return [2 /*return*/, responseHandler.handleServerTokenResponse(response.body, this.authority, reqTimestamp, request.resourceRequestMethod, request.resourceRequestUri, undefined, [], undefined, true)];
+                        return [2 /*return*/, responseHandler.handleServerTokenResponse(response.body, this.authority, reqTimestamp, request, undefined, undefined, true)];
                 }
             });
         });
@@ -4985,7 +5103,7 @@ var RefreshTokenClient = /** @class */ (function (_super) {
                 if (!refreshToken) {
                     throw ClientAuthError.createNoTokensFoundError();
                 }
-                refreshTokenRequest = __assign$1(__assign$1({}, request), { refreshToken: refreshToken.secret, authenticationScheme: AuthenticationScheme.BEARER });
+                refreshTokenRequest = __assign$1(__assign$1({}, request), { refreshToken: refreshToken.secret, authenticationScheme: request.authenticationScheme || AuthenticationScheme.BEARER });
                 return [2 /*return*/, this.acquireToken(refreshTokenRequest)];
             });
         });
@@ -4997,22 +5115,35 @@ var RefreshTokenClient = /** @class */ (function (_super) {
      */
     RefreshTokenClient.prototype.executeTokenRequest = function (request, authority) {
         return __awaiter$1(this, void 0, void 0, function () {
-            var requestBody, headers, thumbprint;
+            var requestBody, queryParameters, headers, thumbprint, endpoint;
             return __generator$1(this, function (_a) {
                 switch (_a.label) {
                     case 0: return [4 /*yield*/, this.createTokenRequestBody(request)];
                     case 1:
                         requestBody = _a.sent();
+                        queryParameters = this.createTokenQueryParameters(request);
                         headers = this.createDefaultTokenRequestHeaders();
                         thumbprint = {
                             clientId: this.config.authOptions.clientId,
                             authority: authority.canonicalAuthority,
                             scopes: request.scopes
                         };
-                        return [2 /*return*/, this.executePostToTokenEndpoint(authority.tokenEndpoint, requestBody, headers, thumbprint)];
+                        endpoint = StringUtils.isEmpty(queryParameters) ? authority.tokenEndpoint : authority.tokenEndpoint + "?" + queryParameters;
+                        return [2 /*return*/, this.executePostToTokenEndpoint(endpoint, requestBody, headers, thumbprint)];
                 }
             });
         });
+    };
+    /**
+     * Creates query string for the /token request
+     * @param request
+     */
+    RefreshTokenClient.prototype.createTokenQueryParameters = function (request) {
+        var parameterBuilder = new RequestParameterBuilder();
+        if (request.tokenQueryParameters) {
+            parameterBuilder.addExtraQueryParameters(request.tokenQueryParameters);
+        }
+        return parameterBuilder.createQueryString();
     };
     /**
      * Helper function to create the token request body
@@ -5029,6 +5160,11 @@ var RefreshTokenClient = /** @class */ (function (_super) {
                         parameterBuilder.addScopes(request.scopes);
                         parameterBuilder.addGrantType(GrantType.REFRESH_TOKEN_GRANT);
                         parameterBuilder.addClientInfo();
+                        parameterBuilder.addLibraryInfo(this.config.libraryInfo);
+                        parameterBuilder.addThrottling();
+                        if (this.serverTelemetryManager) {
+                            parameterBuilder.addServerTelemetry(this.serverTelemetryManager);
+                        }
                         correlationId = request.correlationId || this.config.cryptoInterface.createNewGuid();
                         parameterBuilder.addCorrelationId(correlationId);
                         parameterBuilder.addRefreshToken(request.refreshToken);
@@ -5042,11 +5178,8 @@ var RefreshTokenClient = /** @class */ (function (_super) {
                         }
                         if (!(request.authenticationScheme === AuthenticationScheme.POP)) return [3 /*break*/, 2];
                         popTokenGenerator = new PopTokenGenerator(this.cryptoUtils);
-                        if (!request.resourceRequestMethod || !request.resourceRequestUri) {
-                            throw ClientConfigurationError.createResourceRequestParametersRequiredError();
-                        }
                         _b = (_a = parameterBuilder).addPopToken;
-                        return [4 /*yield*/, popTokenGenerator.generateCnf(request.resourceRequestMethod, request.resourceRequestUri)];
+                        return [4 /*yield*/, popTokenGenerator.generateCnf(request)];
                     case 1:
                         _b.apply(_a, [_c.sent()]);
                         _c.label = 2;
@@ -5088,7 +5221,7 @@ var RefreshTokenClient = /** @class */ (function (_super) {
                         if (!request.skipCache) return [3 /*break*/, 2];
                         return [4 /*yield*/, this.executeTokenRequest(request, this.authority)];
                     case 1: return [2 /*return*/, _a.sent()];
-                    case 2: return [4 /*yield*/, this.getCachedAuthenticationResult()];
+                    case 2: return [4 /*yield*/, this.getCachedAuthenticationResult(request)];
                     case 3:
                         cachedAuthenticationResult = _a.sent();
                         if (!cachedAuthenticationResult) return [3 /*break*/, 4];
@@ -5102,7 +5235,7 @@ var RefreshTokenClient = /** @class */ (function (_super) {
     /**
      * looks up cache if the tokens are cached already
      */
-    ClientCredentialClient.prototype.getCachedAuthenticationResult = function () {
+    ClientCredentialClient.prototype.getCachedAuthenticationResult = function (request) {
         return __awaiter$1(this, void 0, void 0, function () {
             var cachedAccessToken;
             return __generator$1(this, function (_a) {
@@ -5119,7 +5252,7 @@ var RefreshTokenClient = /** @class */ (function (_super) {
                                 accessToken: cachedAccessToken,
                                 refreshToken: null,
                                 appMetadata: null
-                            }, true)];
+                            }, true, request)];
                     case 1: return [2 /*return*/, _a.sent()];
                 }
             });
@@ -5172,7 +5305,7 @@ var RefreshTokenClient = /** @class */ (function (_super) {
                         response = _a.sent();
                         responseHandler = new ResponseHandler(this.config.authOptions.clientId, this.cacheManager, this.cryptoUtils, this.logger, this.config.serializableCache, this.config.persistencePlugin);
                         responseHandler.validateTokenResponse(response.body);
-                        return [4 /*yield*/, responseHandler.handleServerTokenResponse(response.body, this.authority, reqTimestamp, request.resourceRequestMethod, request.resourceRequestUri, undefined, request.scopes)];
+                        return [4 /*yield*/, responseHandler.handleServerTokenResponse(response.body, this.authority, reqTimestamp, request)];
                     case 2:
                         tokenResponse = _a.sent();
                         return [2 /*return*/, tokenResponse];
@@ -5189,6 +5322,11 @@ var RefreshTokenClient = /** @class */ (function (_super) {
         parameterBuilder.addClientId(this.config.authOptions.clientId);
         parameterBuilder.addScopes(request.scopes, false);
         parameterBuilder.addGrantType(GrantType.CLIENT_CREDENTIALS_GRANT);
+        parameterBuilder.addLibraryInfo(this.config.libraryInfo);
+        parameterBuilder.addThrottling();
+        if (this.serverTelemetryManager) {
+            parameterBuilder.addServerTelemetry(this.serverTelemetryManager);
+        }
         var correlationId = request.correlationId || this.config.cryptoInterface.createNewGuid();
         parameterBuilder.addCorrelationId(correlationId);
         if (this.config.clientCredentials.clientSecret) {
@@ -5279,7 +5417,7 @@ var RefreshTokenClient = /** @class */ (function (_super) {
                                 idToken: cachedIdToken,
                                 refreshToken: null,
                                 appMetadata: null
-                            }, true, idTokenObject)];
+                            }, true, request, idTokenObject)];
                     case 1: return [2 /*return*/, _a.sent()];
                 }
             });
@@ -5360,7 +5498,7 @@ var RefreshTokenClient = /** @class */ (function (_super) {
                         response = _a.sent();
                         responseHandler = new ResponseHandler(this.config.authOptions.clientId, this.cacheManager, this.cryptoUtils, this.logger, this.config.serializableCache, this.config.persistencePlugin);
                         responseHandler.validateTokenResponse(response.body);
-                        return [4 /*yield*/, responseHandler.handleServerTokenResponse(response.body, this.authority, reqTimestamp, request.resourceRequestMethod, request.resourceRequestUri, undefined, request.scopes, request.oboAssertion)];
+                        return [4 /*yield*/, responseHandler.handleServerTokenResponse(response.body, this.authority, reqTimestamp, request)];
                     case 2:
                         tokenResponse = _a.sent();
                         return [2 /*return*/, tokenResponse];
@@ -5378,6 +5516,11 @@ var RefreshTokenClient = /** @class */ (function (_super) {
         parameterBuilder.addScopes(request.scopes);
         parameterBuilder.addGrantType(GrantType.JWT_BEARER);
         parameterBuilder.addClientInfo();
+        parameterBuilder.addLibraryInfo(this.config.libraryInfo);
+        parameterBuilder.addThrottling();
+        if (this.serverTelemetryManager) {
+            parameterBuilder.addServerTelemetry(this.serverTelemetryManager);
+        }
         var correlationId = request.correlationId || this.config.cryptoInterface.createNewGuid();
         parameterBuilder.addCorrelationId(correlationId);
         parameterBuilder.addRequestTokenUse(AADServerParamKeys.ON_BEHALF_OF);
@@ -5438,7 +5581,7 @@ var SilentFlowClient = /** @class */ (function (_super) {
      */
     SilentFlowClient.prototype.acquireCachedToken = function (request) {
         return __awaiter$1(this, void 0, void 0, function () {
-            var requestScopes, environment, cacheRecord;
+            var requestScopes, environment, authScheme, cacheRecord;
             return __generator$1(this, function (_a) {
                 switch (_a.label) {
                     case 0:
@@ -5452,15 +5595,21 @@ var SilentFlowClient = /** @class */ (function (_super) {
                         }
                         requestScopes = new ScopeSet(request.scopes || []);
                         environment = request.authority || this.authority.getPreferredCache();
-                        cacheRecord = this.cacheManager.readCacheRecord(request.account, this.config.authOptions.clientId, requestScopes, environment);
-                        if (!this.isRefreshRequired(request, cacheRecord.accessToken)) return [3 /*break*/, 1];
-                        throw ClientAuthError.createRefreshRequiredError();
-                    case 1:
+                        authScheme = request.authenticationScheme || AuthenticationScheme.BEARER;
+                        cacheRecord = this.cacheManager.readCacheRecord(request.account, this.config.authOptions.clientId, requestScopes, environment, authScheme);
+                        if (request.forceRefresh ||
+                            request.claims ||
+                            !cacheRecord.accessToken ||
+                            TimeUtils.isTokenExpired(cacheRecord.accessToken.expiresOn, this.config.systemOptions.tokenRenewalOffsetSeconds) ||
+                            (cacheRecord.accessToken.refreshOn && TimeUtils.isTokenExpired(cacheRecord.accessToken.refreshOn, 0))) {
+                            // Must refresh due to request parameters, or expired or non-existent access_token
+                            throw ClientAuthError.createRefreshRequiredError();
+                        }
                         if (this.config.serverTelemetryManager) {
                             this.config.serverTelemetryManager.incrementCacheHits();
                         }
-                        return [4 /*yield*/, this.generateResultFromCacheRecord(cacheRecord, request.resourceRequestMethod, request.resourceRequestUri)];
-                    case 2: return [2 /*return*/, _a.sent()];
+                        return [4 /*yield*/, this.generateResultFromCacheRecord(cacheRecord, request)];
+                    case 1: return [2 /*return*/, _a.sent()];
                 }
             });
         });
@@ -5469,7 +5618,7 @@ var SilentFlowClient = /** @class */ (function (_super) {
      * Helper function to build response object from the CacheRecord
      * @param cacheRecord
      */
-    SilentFlowClient.prototype.generateResultFromCacheRecord = function (cacheRecord, resourceRequestMethod, resourceRequestUri) {
+    SilentFlowClient.prototype.generateResultFromCacheRecord = function (cacheRecord, request) {
         return __awaiter$1(this, void 0, void 0, function () {
             var idTokenObj;
             return __generator$1(this, function (_a) {
@@ -5478,27 +5627,11 @@ var SilentFlowClient = /** @class */ (function (_super) {
                         if (cacheRecord.idToken) {
                             idTokenObj = new AuthToken(cacheRecord.idToken.secret, this.config.cryptoInterface);
                         }
-                        return [4 /*yield*/, ResponseHandler.generateAuthenticationResult(this.cryptoUtils, this.authority, cacheRecord, true, idTokenObj, undefined, resourceRequestMethod, resourceRequestUri)];
+                        return [4 /*yield*/, ResponseHandler.generateAuthenticationResult(this.cryptoUtils, this.authority, cacheRecord, true, request, idTokenObj)];
                     case 1: return [2 /*return*/, _a.sent()];
                 }
             });
         });
-    };
-    /**
-     * Given a request object and an accessTokenEntity determine if the accessToken needs to be refreshed
-     * @param request
-     * @param cachedAccessToken
-     */
-    SilentFlowClient.prototype.isRefreshRequired = function (request, cachedAccessToken) {
-        if (request.forceRefresh || request.claims) {
-            // Must refresh due to request parameters
-            return true;
-        }
-        else if (!cachedAccessToken || TimeUtils.isTokenExpired(cachedAccessToken.expiresOn, this.config.systemOptions.tokenRenewalOffsetSeconds)) {
-            // Must refresh due to expired or non-existent access_token
-            return true;
-        }
-        return false;
     };
     return SilentFlowClient;
 }(BaseClient));
@@ -5535,7 +5668,7 @@ var SilentFlowClient = /** @class */ (function (_super) {
                         responseHandler = new ResponseHandler(this.config.authOptions.clientId, this.cacheManager, this.cryptoUtils, this.logger, this.config.serializableCache, this.config.persistencePlugin);
                         // Validate response. This function throws a server error if an error is returned by the server.
                         responseHandler.validateTokenResponse(response.body);
-                        tokenResponse = responseHandler.handleServerTokenResponse(response.body, this.authority, reqTimestamp);
+                        tokenResponse = responseHandler.handleServerTokenResponse(response.body, this.authority, reqTimestamp, request);
                         return [2 /*return*/, tokenResponse];
                 }
             });
@@ -5573,6 +5706,11 @@ var SilentFlowClient = /** @class */ (function (_super) {
         parameterBuilder.addScopes(request.scopes);
         parameterBuilder.addGrantType(GrantType.RESOURCE_OWNER_PASSWORD_GRANT);
         parameterBuilder.addClientInfo();
+        parameterBuilder.addLibraryInfo(this.config.libraryInfo);
+        parameterBuilder.addThrottling();
+        if (this.serverTelemetryManager) {
+            parameterBuilder.addServerTelemetry(this.serverTelemetryManager);
+        }
         var correlationId = request.correlationId || this.config.cryptoInterface.createNewGuid();
         parameterBuilder.addCorrelationId(correlationId);
         if (!StringUtils.isEmpty(request.claims) || this.config.authOptions.clientCapabilities && this.config.authOptions.clientCapabilities.length > 0) {
@@ -6344,6 +6482,12 @@ var ServerTelemetryManager = /** @class */ (function () {
      */
     ServerTelemetryManager.prototype.cacheFailedRequest = function (error) {
         var lastRequests = this.getLastRequests();
+        if (lastRequests.errors.length >= SERVER_TELEM_CONSTANTS.MAX_CACHED_ERRORS) {
+            // Remove a cached error to make room, first in first out
+            lastRequests.failedRequests.shift(); // apiId
+            lastRequests.failedRequests.shift(); // correlationId
+            lastRequests.errors.shift();
+        }
         lastRequests.failedRequests.push(this.apiId, this.correlationId);
         if (!StringUtils.isEmpty(error.subError)) {
             lastRequests.errors.push(error.subError);
@@ -6412,7 +6556,7 @@ var ServerTelemetryManager = /** @class */ (function () {
             var errorCode = serverTelemetryEntity.errors[i] || Constants.EMPTY_STRING;
             // Count number of characters that would be added to header, each character is 1 byte. Add 3 at the end to account for separators
             dataSize += apiId.toString().length + correlationId.toString().length + errorCode.length + 3;
-            if (dataSize < SERVER_TELEM_CONSTANTS.MAX_HEADER_BYTES) {
+            if (dataSize < SERVER_TELEM_CONSTANTS.MAX_LAST_HEADER_BYTES) {
                 // Adding this entry to the header would still keep header size below the limit
                 maxErrors += 1;
             }
@@ -6449,6 +6593,10 @@ var BrowserConstants = {
      * Default popup window height
      */
     POPUP_HEIGHT: 600,
+    /**
+     * Name of the popup window starts with
+     */
+    POPUP_NAME_PREFIX: "msal",
     /**
      * Default popup monitor poll interval in milliseconds
      */
@@ -6504,6 +6652,7 @@ var ApiId;
     ApiId[ApiId["handleRedirectPromise"] = 865] = "handleRedirectPromise";
     ApiId[ApiId["acquireTokenSilent_silentFlow"] = 61] = "acquireTokenSilent_silentFlow";
     ApiId[ApiId["logout"] = 961] = "logout";
+    ApiId[ApiId["logoutPopup"] = 962] = "logoutPopup";
 })(ApiId || (ApiId = {}));
 /*
  * Interaction type of the API - used for state and telemetry
@@ -6965,11 +7114,15 @@ var BrowserAuthErrorMessage = {
     },
     hashEmptyError: {
         code: "hash_empty_error",
-        desc: "Hash value cannot be processed because it is empty."
+        desc: "Hash value cannot be processed because it is empty. Please verify that your redirectUri is not clearing the hash."
     },
     hashDoesNotContainStateError: {
         code: "no_state_in_hash",
         desc: "Hash does not contain state. Please verify that the request originated from msal."
+    },
+    hashDoesNotContainKnownPropertiesError: {
+        code: "hash_does_not_contain_known_properties",
+        desc: "Hash does not contain known properites. Please verify that your redirectUri is not changing the hash."
     },
     unableToParseStateError: {
         code: "unable_to_parse_state",
@@ -6981,7 +7134,7 @@ var BrowserAuthErrorMessage = {
     },
     interactionInProgress: {
         code: "interaction_in_progress",
-        desc: "Interaction is currently in progress. Please ensure that this interaction has been completed before calling an interactive API."
+        desc: "Interaction is currently in progress. Please ensure that this interaction has been completed before calling an interactive API.  For more visit: aka.ms/msaljs/browser-errors."
     },
     popUpWindowError: {
         code: "popup_window_error",
@@ -7009,7 +7162,11 @@ var BrowserAuthErrorMessage = {
     },
     blockTokenRequestsInHiddenIframeError: {
         code: "block_iframe_reload",
-        desc: "Request was blocked inside an iframe because MSAL detected an authentication response. Please ensure monitorWindowForHash was called."
+        desc: "Request was blocked inside an iframe because MSAL detected an authentication response. For more visit: aka.ms/msaljs/browser-errors"
+    },
+    blockAcquireTokenInPopupsError: {
+        code: "block_nested_popups",
+        desc: "Request was blocked inside a popup because MSAL detected it was running in a popup."
     },
     iframeClosedPrematurelyError: {
         code: "iframe_closed_prematurely",
@@ -7054,6 +7211,22 @@ var BrowserAuthErrorMessage = {
     databaseNotOpen: {
         code: "database_not_open",
         desc: "Database is not open!"
+    },
+    noNetworkConnectivity: {
+        code: "no_network_connectivity",
+        desc: "No network connectivity. Check your internet connection."
+    },
+    postRequestFailed: {
+        code: "post_request_failed",
+        desc: "Network request failed: If the browser threw a CORS error, check that the redirectUri is registered in the Azure App Portal as type 'SPA'"
+    },
+    getRequestFailed: {
+        code: "get_request_failed",
+        desc: "Network request failed. Please check the network trace to determine root cause."
+    },
+    failedToParseNetworkResponse: {
+        code: "failed_to_parse_response",
+        desc: "Failed to parse network response. Check network trace."
     }
 };
 /**
@@ -7106,6 +7279,12 @@ var BrowserAuthError = /** @class */ (function (_super) {
      */
     BrowserAuthError.createHashDoesNotContainStateError = function () {
         return new BrowserAuthError(BrowserAuthErrorMessage.hashDoesNotContainStateError.code, BrowserAuthErrorMessage.hashDoesNotContainStateError.desc);
+    };
+    /**
+     * Creates an error thrown when the hash string value does not contain known properties
+     */
+    BrowserAuthError.createHashDoesNotContainKnownPropertiesError = function () {
+        return new BrowserAuthError(BrowserAuthErrorMessage.hashDoesNotContainKnownPropertiesError.code, BrowserAuthErrorMessage.hashDoesNotContainKnownPropertiesError.desc);
     };
     /**
      * Creates an error thrown when the hash string value is unexpectedly empty.
@@ -7173,6 +7352,13 @@ var BrowserAuthError = /** @class */ (function (_super) {
         return new BrowserAuthError(BrowserAuthErrorMessage.blockTokenRequestsInHiddenIframeError.code, BrowserAuthErrorMessage.blockTokenRequestsInHiddenIframeError.desc);
     };
     /**
+     * Creates an error thrown when a popup attempts to call an acquireToken API
+     * @returns
+     */
+    BrowserAuthError.createBlockAcquireTokenInPopupsError = function () {
+        return new BrowserAuthError(BrowserAuthErrorMessage.blockAcquireTokenInPopupsError.code, BrowserAuthErrorMessage.blockAcquireTokenInPopupsError.desc);
+    };
+    /**
      * Creates an error thrown when an iframe is found to be closed before the timeout is reached.
      */
     BrowserAuthError.createIframeClosedPrematurelyError = function () {
@@ -7237,6 +7423,30 @@ var BrowserAuthError = /** @class */ (function (_super) {
      */
     BrowserAuthError.createDatabaseNotOpenError = function () {
         return new BrowserAuthError(BrowserAuthErrorMessage.databaseNotOpen.code, BrowserAuthErrorMessage.databaseNotOpen.desc);
+    };
+    /**
+     * Create an error thrown when token fetch fails due to no internet
+     */
+    BrowserAuthError.createNoNetworkConnectivityError = function () {
+        return new BrowserAuthError(BrowserAuthErrorMessage.noNetworkConnectivity.code, BrowserAuthErrorMessage.noNetworkConnectivity.desc);
+    };
+    /**
+     * Create an error thrown when token fetch fails due to reasons other than internet connectivity
+     */
+    BrowserAuthError.createPostRequestFailedError = function (errorDesc, endpoint) {
+        return new BrowserAuthError(BrowserAuthErrorMessage.postRequestFailed.code, BrowserAuthErrorMessage.postRequestFailed.desc + " | Network client threw: " + errorDesc + " | Attempted to reach: " + endpoint.split("?")[0]);
+    };
+    /**
+     * Create an error thrown when get request fails due to reasons other than internet connectivity
+     */
+    BrowserAuthError.createGetRequestFailedError = function (errorDesc, endpoint) {
+        return new BrowserAuthError(BrowserAuthErrorMessage.getRequestFailed.code, BrowserAuthErrorMessage.getRequestFailed.desc + " | Network client threw: " + errorDesc + " | Attempted to reach: " + endpoint.split("?")[0]);
+    };
+    /**
+     * Create an error thrown when network client fails to parse network response
+     */
+    BrowserAuthError.createFailedToParseNetworkResponseError = function (endpoint) {
+        return new BrowserAuthError(BrowserAuthErrorMessage.failedToParseNetworkResponse.code, BrowserAuthErrorMessage.failedToParseNetworkResponse.desc + " | Attempted to reach: " + endpoint.split("?")[0]);
     };
     return BrowserAuthError;
 }(AuthError));
@@ -7751,10 +7961,9 @@ var CryptoOps = /** @class */ (function () {
     };
     /**
      * Generates a keypair, stores it and returns a thumbprint
-     * @param resourceRequestMethod
-     * @param resourceRequestUri
+     * @param request
      */
-    CryptoOps.prototype.getPublicKeyThumbprint = function (resourceRequestMethod, resourceRequestUri) {
+    CryptoOps.prototype.getPublicKeyThumbprint = function (request) {
         return __awaiter(this, void 0, void 0, function () {
             var keyPair, publicKeyJwk, pubKeyThumprintObj, publicJwkString, publicJwkBuffer, publicJwkHash, privateKeyJwk, unextractablePrivateKey;
             return __generator(this, function (_a) {
@@ -7785,8 +7994,8 @@ var CryptoOps = /** @class */ (function () {
                         this.cache.put(publicJwkHash, {
                             privateKey: unextractablePrivateKey,
                             publicKey: keyPair.publicKey,
-                            requestMethod: resourceRequestMethod,
-                            requestUri: resourceRequestUri
+                            requestMethod: request.resourceRequestMethod,
+                            requestUri: request.resourceRequestUri
                         });
                         return [2 /*return*/, publicJwkHash];
                 }
@@ -8182,14 +8391,10 @@ var BrowserCacheManager = /** @class */ (function (_super) {
             return null;
         }
         var parsedAccount = this.validateAndParseJson(account);
-        if (!parsedAccount) {
+        if (!parsedAccount || !AccountEntity.isAccountEntity(parsedAccount)) {
             return null;
         }
-        var accountEntity = CacheManager.toObject(new AccountEntity(), parsedAccount);
-        if (AccountEntity.isAccountEntity(accountEntity)) {
-            return accountEntity;
-        }
-        return null;
+        return CacheManager.toObject(new AccountEntity(), parsedAccount);
     };
     /**
      * set account entity in the platform cache
@@ -8197,6 +8402,7 @@ var BrowserCacheManager = /** @class */ (function (_super) {
      * @param value
      */
     BrowserCacheManager.prototype.setAccount = function (account) {
+        this.logger.verbose("BrowserCacheManager.setAccount called");
         var key = account.generateAccountKey();
         this.setItem(key, JSON.stringify(account));
     };
@@ -8205,25 +8411,24 @@ var BrowserCacheManager = /** @class */ (function (_super) {
      * @param idTokenKey
      */
     BrowserCacheManager.prototype.getIdTokenCredential = function (idTokenKey) {
+        this.logger.verbose("BrowserCacheManager.getIdTokenCredential called");
         var value = this.getItem(idTokenKey);
         if (!value) {
             return null;
         }
         var parsedIdToken = this.validateAndParseJson(value);
-        if (!parsedIdToken) {
+        if (!parsedIdToken || !IdTokenEntity.isIdTokenEntity(parsedIdToken)) {
             return null;
         }
-        var idToken = CacheManager.toObject(new IdTokenEntity(), parsedIdToken);
-        if (IdTokenEntity.isIdTokenEntity(idToken)) {
-            return idToken;
-        }
-        return null;
+        this.logger.verbose("BrowserCacheManager.getIdTokenCredential: cache hit");
+        return CacheManager.toObject(new IdTokenEntity(), parsedIdToken);
     };
     /**
      * set IdToken credential to the platform cache
      * @param idToken
      */
     BrowserCacheManager.prototype.setIdTokenCredential = function (idToken) {
+        this.logger.verbose("BrowserCacheManager.setIdTokenCredential called");
         var idTokenKey = idToken.generateCredentialKey();
         this.setItem(idTokenKey, JSON.stringify(idToken));
     };
@@ -8232,25 +8437,24 @@ var BrowserCacheManager = /** @class */ (function (_super) {
      * @param key
      */
     BrowserCacheManager.prototype.getAccessTokenCredential = function (accessTokenKey) {
+        this.logger.verbose("BrowserCacheManager.getAccessTokenCredential called");
         var value = this.getItem(accessTokenKey);
         if (!value) {
             return null;
         }
         var parsedAccessToken = this.validateAndParseJson(value);
-        if (!parsedAccessToken) {
+        if (!parsedAccessToken || !AccessTokenEntity.isAccessTokenEntity(parsedAccessToken)) {
             return null;
         }
-        var accessToken = CacheManager.toObject(new AccessTokenEntity(), parsedAccessToken);
-        if (AccessTokenEntity.isAccessTokenEntity(accessToken)) {
-            return accessToken;
-        }
-        return null;
+        this.logger.verbose("BrowserCacheManager.getAccessTokenCredential: cache hit");
+        return CacheManager.toObject(new AccessTokenEntity(), parsedAccessToken);
     };
     /**
      * set accessToken credential to the platform cache
      * @param accessToken
      */
     BrowserCacheManager.prototype.setAccessTokenCredential = function (accessToken) {
+        this.logger.verbose("BrowserCacheManager.setAccessTokenCredential called");
         var accessTokenKey = accessToken.generateCredentialKey();
         this.setItem(accessTokenKey, JSON.stringify(accessToken));
     };
@@ -8259,25 +8463,24 @@ var BrowserCacheManager = /** @class */ (function (_super) {
      * @param refreshTokenKey
      */
     BrowserCacheManager.prototype.getRefreshTokenCredential = function (refreshTokenKey) {
+        this.logger.verbose("BrowserCacheManager.getRefreshTokenCredential called");
         var value = this.getItem(refreshTokenKey);
         if (!value) {
             return null;
         }
         var parsedRefreshToken = this.validateAndParseJson(value);
-        if (!parsedRefreshToken) {
+        if (!parsedRefreshToken || !RefreshTokenEntity.isRefreshTokenEntity(parsedRefreshToken)) {
             return null;
         }
-        var refreshToken = CacheManager.toObject(new RefreshTokenEntity(), parsedRefreshToken);
-        if (RefreshTokenEntity.isRefreshTokenEntity(refreshToken)) {
-            return refreshToken;
-        }
-        return null;
+        this.logger.verbose("BrowserCacheManager.getRefreshTokenCredential: cache hit");
+        return CacheManager.toObject(new RefreshTokenEntity(), parsedRefreshToken);
     };
     /**
      * set refreshToken credential to the platform cache
      * @param refreshToken
      */
     BrowserCacheManager.prototype.setRefreshTokenCredential = function (refreshToken) {
+        this.logger.verbose("BrowserCacheManager.setRefreshTokenCredential called");
         var refreshTokenKey = refreshToken.generateCredentialKey();
         this.setItem(refreshTokenKey, JSON.stringify(refreshToken));
     };
@@ -8286,25 +8489,24 @@ var BrowserCacheManager = /** @class */ (function (_super) {
      * @param appMetadataKey
      */
     BrowserCacheManager.prototype.getAppMetadata = function (appMetadataKey) {
+        this.logger.verbose("BrowserCacheManager.getAppMetadata called");
         var value = this.getItem(appMetadataKey);
         if (!value) {
             return null;
         }
         var parsedMetadata = this.validateAndParseJson(value);
-        if (!parsedMetadata) {
+        if (!parsedMetadata || !AppMetadataEntity.isAppMetadataEntity(appMetadataKey, parsedMetadata)) {
             return null;
         }
-        var appMetadata = CacheManager.toObject(new AppMetadataEntity(), parsedMetadata);
-        if (AppMetadataEntity.isAppMetadataEntity(appMetadataKey, appMetadata)) {
-            return appMetadata;
-        }
-        return null;
+        this.logger.verbose("BrowserCacheManager.getAppMetadata: cache hit");
+        return CacheManager.toObject(new AppMetadataEntity(), parsedMetadata);
     };
     /**
      * set appMetadata entity to the platform cache
      * @param appMetadata
      */
     BrowserCacheManager.prototype.setAppMetadata = function (appMetadata) {
+        this.logger.verbose("BrowserCacheManager.setAppMetadata called");
         var appMetadataKey = appMetadata.generateAppMetadataKey();
         this.setItem(appMetadataKey, JSON.stringify(appMetadata));
     };
@@ -8313,19 +8515,17 @@ var BrowserCacheManager = /** @class */ (function (_super) {
      * @param serverTelemetryKey
      */
     BrowserCacheManager.prototype.getServerTelemetry = function (serverTelemetryKey) {
+        this.logger.verbose("BrowserCacheManager.getServerTelemetry called");
         var value = this.getItem(serverTelemetryKey);
         if (!value) {
             return null;
         }
         var parsedMetadata = this.validateAndParseJson(value);
-        if (!parsedMetadata) {
+        if (!parsedMetadata || !ServerTelemetryEntity.isServerTelemetryEntity(serverTelemetryKey, parsedMetadata)) {
             return null;
         }
-        var serverTelemetryEntity = CacheManager.toObject(new ServerTelemetryEntity(), parsedMetadata);
-        if (ServerTelemetryEntity.isServerTelemetryEntity(serverTelemetryKey, serverTelemetryEntity)) {
-            return serverTelemetryEntity;
-        }
-        return null;
+        this.logger.verbose("BrowserCacheManager.getServerTelemetry: cache hit");
+        return CacheManager.toObject(new ServerTelemetryEntity(), parsedMetadata);
     };
     /**
      * set server telemetry entity to the platform cache
@@ -8333,18 +8533,21 @@ var BrowserCacheManager = /** @class */ (function (_super) {
      * @param serverTelemetry
      */
     BrowserCacheManager.prototype.setServerTelemetry = function (serverTelemetryKey, serverTelemetry) {
+        this.logger.verbose("BrowserCacheManager.setServerTelemetry called");
         this.setItem(serverTelemetryKey, JSON.stringify(serverTelemetry));
     };
     /**
      *
      */
     BrowserCacheManager.prototype.getAuthorityMetadata = function (key) {
+        this.logger.verbose("BrowserCacheManager.getAuthorityMetadata called");
         var value = this.internalStorage.getItem(key);
         if (!value) {
             return null;
         }
         var parsedMetadata = this.validateAndParseJson(value);
         if (parsedMetadata && AuthorityMetadataEntity.isAuthorityMetadataEntity(key, parsedMetadata)) {
+            this.logger.verbose("BrowserCacheManager.getAuthorityMetadata: cache hit");
             return CacheManager.toObject(new AuthorityMetadataEntity(), parsedMetadata);
         }
         return null;
@@ -8364,6 +8567,7 @@ var BrowserCacheManager = /** @class */ (function (_super) {
      * @param entity
      */
     BrowserCacheManager.prototype.setAuthorityMetadata = function (key, entity) {
+        this.logger.verbose("BrowserCacheManager.setAuthorityMetadata called");
         this.internalStorage.setItem(key, JSON.stringify(entity));
     };
     /**
@@ -8371,19 +8575,17 @@ var BrowserCacheManager = /** @class */ (function (_super) {
      * @param throttlingCacheKey
      */
     BrowserCacheManager.prototype.getThrottlingCache = function (throttlingCacheKey) {
+        this.logger.verbose("BrowserCacheManager.getThrottlingCache called");
         var value = this.getItem(throttlingCacheKey);
         if (!value) {
             return null;
         }
         var parsedThrottlingCache = this.validateAndParseJson(value);
-        if (!parsedThrottlingCache) {
+        if (!parsedThrottlingCache || !ThrottlingEntity.isThrottlingEntity(throttlingCacheKey, parsedThrottlingCache)) {
             return null;
         }
-        var throttlingCache = CacheManager.toObject(new ThrottlingEntity(), parsedThrottlingCache);
-        if (ThrottlingEntity.isThrottlingEntity(throttlingCacheKey, throttlingCache)) {
-            return throttlingCache;
-        }
-        return null;
+        this.logger.verbose("BrowserCacheManager.getThrottlingCache: cache hit");
+        return CacheManager.toObject(new ThrottlingEntity(), parsedThrottlingCache);
     };
     /**
      * set throttling entity to the platform cache
@@ -8391,6 +8593,7 @@ var BrowserCacheManager = /** @class */ (function (_super) {
      * @param throttlingCache
      */
     BrowserCacheManager.prototype.setThrottlingCache = function (throttlingCacheKey, throttlingCache) {
+        this.logger.verbose("BrowserCacheManager.setThrottlingCache called");
         this.setItem(throttlingCacheKey, JSON.stringify(throttlingCache));
     };
     /**
@@ -8399,8 +8602,10 @@ var BrowserCacheManager = /** @class */ (function (_super) {
      * @param key
      */
     BrowserCacheManager.prototype.getTemporaryCache = function (cacheKey, generateKey) {
+        this.logger.verbose("BrowserCacheManager.getTemporaryCache called");
         var key = generateKey ? this.generateCacheKey(cacheKey) : cacheKey;
         if (this.cacheConfig.storeAuthStateInCookie) {
+            this.logger.verbose("BrowserCacheManager.getTemporaryCache: storeAuthStateInCookies set to true, retrieving from cookies");
             var itemCookie = this.getItemCookie(key);
             if (itemCookie) {
                 return itemCookie;
@@ -8408,6 +8613,14 @@ var BrowserCacheManager = /** @class */ (function (_super) {
         }
         var value = this.temporaryCacheStorage.getItem(key);
         if (!value) {
+            // If temp cache item not found in session/memory, check local storage for items set by old versions
+            if (this.cacheConfig.cacheLocation === BrowserCacheLocation.LocalStorage) {
+                var item = this.browserStorage.getItem(key);
+                if (item) {
+                    this.logger.verbose("BrowserCacheManager.getTemporaryCache: Temporary cache item found in local storage");
+                    return item;
+                }
+            }
             return null;
         }
         return value;
@@ -8423,6 +8636,7 @@ var BrowserCacheManager = /** @class */ (function (_super) {
         var key = generateKey ? this.generateCacheKey(cacheKey) : cacheKey;
         this.temporaryCacheStorage.setItem(key, value);
         if (this.cacheConfig.storeAuthStateInCookie) {
+            this.logger.verbose("BrowserCacheManager.setTemporaryCache: storeAuthStateInCookie set to true, setting item cookie");
             this.setItemCookie(key, value);
         }
     };
@@ -8435,6 +8649,7 @@ var BrowserCacheManager = /** @class */ (function (_super) {
         this.browserStorage.removeItem(key);
         this.temporaryCacheStorage.removeItem(key);
         if (this.cacheConfig.storeAuthStateInCookie) {
+            this.logger.verbose("BrowserCacheManager.removeItem: storeAuthStateInCookie is true, clearing item cookie");
             this.clearItemCookie(key);
         }
         return true;
@@ -8479,6 +8694,9 @@ var BrowserCacheManager = /** @class */ (function (_super) {
             var expireTime = this.getCookieExpirationTime(expires);
             cookieStr += "expires=" + expireTime + ";";
         }
+        if (this.cacheConfig.secureCookies) {
+            cookieStr += "Secure;";
+        }
         document.cookie = cookieStr;
     };
     /**
@@ -8498,6 +8716,23 @@ var BrowserCacheManager = /** @class */ (function (_super) {
             }
         }
         return "";
+    };
+    /**
+     * Clear all msal-related cookies currently set in the browser. Should only be used to clear temporary cache items.
+     */
+    BrowserCacheManager.prototype.clearMsalCookies = function () {
+        var _this = this;
+        var cookiePrefix = Constants.CACHE_PREFIX + "." + this.clientId;
+        var cookieList = document.cookie.split(";");
+        cookieList.forEach(function (cookie) {
+            while (cookie.charAt(0) === " ") {
+                cookie = cookie.substring(1);
+            }
+            if (cookie.indexOf(cookiePrefix) === 0) {
+                var cookieKey = cookie.split("=")[0];
+                _this.clearItemCookie(cookieKey);
+            }
+        });
     };
     /**
      * Clear an item in the cookies by key
@@ -8585,6 +8820,7 @@ var BrowserCacheManager = /** @class */ (function (_super) {
      * @param account
      */
     BrowserCacheManager.prototype.updateCacheEntries = function (state, nonce, authorityInstance) {
+        this.logger.verbose("BrowserCacheManager.updateCacheEntries called");
         // Cache the request state
         var stateCacheKey = this.generateStateKey(state);
         this.setTemporaryCache(stateCacheKey, state, false);
@@ -8601,12 +8837,15 @@ var BrowserCacheManager = /** @class */ (function (_super) {
      */
     BrowserCacheManager.prototype.resetRequestCache = function (state) {
         var _this = this;
+        this.logger.verbose("BrowserCacheManager.resetRequestCache called");
         // check state and remove associated cache items
-        this.getKeys().forEach(function (key) {
-            if (!StringUtils.isEmpty(state) && key.indexOf(state) !== -1) {
-                _this.removeItem(key);
-            }
-        });
+        if (!StringUtils.isEmpty(state)) {
+            this.getKeys().forEach(function (key) {
+                if (key.indexOf(state) !== -1) {
+                    _this.removeItem(key);
+                }
+            });
+        }
         // delete generic interactive request parameters
         if (state) {
             this.removeItem(this.generateStateKey(state));
@@ -8623,6 +8862,7 @@ var BrowserCacheManager = /** @class */ (function (_super) {
      * @param stateString
      */
     BrowserCacheManager.prototype.cleanRequestByState = function (stateString) {
+        this.logger.verbose("BrowserCacheManager.cleanRequestByState called");
         // Interaction is completed - remove interaction status.
         if (stateString) {
             var stateKey = this.generateStateKey(stateString);
@@ -8630,6 +8870,7 @@ var BrowserCacheManager = /** @class */ (function (_super) {
             this.logger.info("BrowserCacheManager.cleanRequestByState: Removing temporary cache items for state: " + cachedState);
             this.resetRequestCache(cachedState || "");
         }
+        this.clearMsalCookies();
     };
     /**
      * Looks in temporary cache for any state values with the provided interactionType and removes all temporary cache items for that state
@@ -8638,22 +8879,29 @@ var BrowserCacheManager = /** @class */ (function (_super) {
      */
     BrowserCacheManager.prototype.cleanRequestByInteractionType = function (interactionType) {
         var _this = this;
+        this.logger.verbose("BrowserCacheManager.cleanRequestByInteractionType called");
+        // Loop through all keys to find state key
         this.getKeys().forEach(function (key) {
+            // If this key is not the state key, move on
             if (key.indexOf(TemporaryCacheKeys.REQUEST_STATE) === -1) {
                 return;
             }
-            var value = _this.temporaryCacheStorage.getItem(key);
-            if (!value) {
+            // Retrieve state value, return if not a valid value
+            var stateValue = _this.temporaryCacheStorage.getItem(key);
+            if (!stateValue) {
                 return;
             }
-            var parsedState = BrowserProtocolUtils.extractBrowserRequestState(_this.cryptoImpl, value);
+            // Extract state and ensure it matches given InteractionType, then clean request cache
+            var parsedState = BrowserProtocolUtils.extractBrowserRequestState(_this.cryptoImpl, stateValue);
             if (parsedState && parsedState.interactionType === interactionType) {
-                _this.logger.info("BrowserCacheManager.cleanRequestByInteractionType: Removing temporary cache items for state: " + value);
-                _this.resetRequestCache(value);
+                _this.logger.info("BrowserCacheManager.cleanRequestByInteractionType: Removing temporary cache items for state: " + stateValue);
+                _this.resetRequestCache(stateValue);
             }
         });
+        this.clearMsalCookies();
     };
     BrowserCacheManager.prototype.cacheCodeRequest = function (authCodeRequest, browserCrypto) {
+        this.logger.verbose("BrowserCacheManager.cacheCodeRequest called");
         var encodedValue = browserCrypto.base64Encode(JSON.stringify(authCodeRequest));
         this.setTemporaryCache(TemporaryCacheKeys.REQUEST_PARAMS, encodedValue, true);
     };
@@ -8661,6 +8909,7 @@ var BrowserCacheManager = /** @class */ (function (_super) {
      * Gets the token exchange parameters from the cache. Throws an error if nothing is found.
      */
     BrowserCacheManager.prototype.getCachedRequest = function (state, browserCrypto) {
+        this.logger.verbose("BrowserCacheManager.getCachedRequest called");
         // Get token request from cache and parse as TokenExchangeParameters.
         var encodedTokenRequest = this.getTemporaryCache(TemporaryCacheKeys.REQUEST_PARAMS, true);
         if (!encodedTokenRequest) {
@@ -8687,7 +8936,8 @@ var BrowserCacheManager = /** @class */ (function (_super) {
 var DEFAULT_BROWSER_CACHE_MANAGER = function (clientId, logger) {
     var cacheOptions = {
         cacheLocation: BrowserCacheLocation.MemoryStorage,
-        storeAuthStateInCookie: false
+        storeAuthStateInCookie: false,
+        secureCookies: false
     };
     return new BrowserCacheManager(clientId, cacheOptions, DEFAULT_CRYPTO_IMPLEMENTATION, logger);
 };
@@ -8710,22 +8960,39 @@ var FetchClient = /** @class */ (function () {
      */
     FetchClient.prototype.sendGetRequestAsync = function (url, options) {
         return __awaiter(this, void 0, void 0, function () {
-            var response, _a;
+            var response, e_1, _a;
             return __generator(this, function (_b) {
                 switch (_b.label) {
-                    case 0: return [4 /*yield*/, fetch(url, {
-                            method: HTTP_REQUEST_TYPE.GET,
-                            headers: this.getFetchHeaders(options)
-                        })];
+                    case 0:
+                        _b.trys.push([0, 2, , 3]);
+                        return [4 /*yield*/, fetch(url, {
+                                method: HTTP_REQUEST_TYPE.GET,
+                                headers: this.getFetchHeaders(options)
+                            })];
                     case 1:
                         response = _b.sent();
+                        return [3 /*break*/, 3];
+                    case 2:
+                        e_1 = _b.sent();
+                        if (window.navigator.onLine) {
+                            throw BrowserAuthError.createGetRequestFailedError(e_1, url);
+                        }
+                        else {
+                            throw BrowserAuthError.createNoNetworkConnectivityError();
+                        }
+                    case 3:
+                        _b.trys.push([3, 5, , 6]);
                         _a = {
                             headers: this.getHeaderDict(response.headers)
                         };
                         return [4 /*yield*/, response.json()];
-                    case 2: return [2 /*return*/, (_a.body = (_b.sent()),
+                    case 4: return [2 /*return*/, (_a.body = (_b.sent()),
                             _a.status = response.status,
                             _a)];
+                    case 5:
+                        _b.sent();
+                        throw BrowserAuthError.createFailedToParseNetworkResponseError(url);
+                    case 6: return [2 /*return*/];
                 }
             });
         });
@@ -8738,25 +9005,43 @@ var FetchClient = /** @class */ (function () {
      */
     FetchClient.prototype.sendPostRequestAsync = function (url, options) {
         return __awaiter(this, void 0, void 0, function () {
-            var reqBody, response, _a;
+            var reqBody, response, e_3, _a;
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
                         reqBody = (options && options.body) || "";
+                        _b.label = 1;
+                    case 1:
+                        _b.trys.push([1, 3, , 4]);
                         return [4 /*yield*/, fetch(url, {
                                 method: HTTP_REQUEST_TYPE.POST,
                                 headers: this.getFetchHeaders(options),
                                 body: reqBody
                             })];
-                    case 1:
+                    case 2:
                         response = _b.sent();
+                        return [3 /*break*/, 4];
+                    case 3:
+                        e_3 = _b.sent();
+                        if (window.navigator.onLine) {
+                            throw BrowserAuthError.createPostRequestFailedError(e_3, url);
+                        }
+                        else {
+                            throw BrowserAuthError.createNoNetworkConnectivityError();
+                        }
+                    case 4:
+                        _b.trys.push([4, 6, , 7]);
                         _a = {
                             headers: this.getHeaderDict(response.headers)
                         };
                         return [4 /*yield*/, response.json()];
-                    case 2: return [2 /*return*/, (_a.body = (_b.sent()),
+                    case 5: return [2 /*return*/, (_a.body = (_b.sent()),
                             _a.status = response.status,
                             _a)];
+                    case 6:
+                        _b.sent();
+                        throw BrowserAuthError.createFailedToParseNetworkResponseError(url);
+                    case 7: return [2 /*return*/];
                 }
             });
         });
@@ -8836,7 +9121,12 @@ var XhrClient = /** @class */ (function () {
             _this.setXhrHeaders(xhr, options);
             xhr.onload = function () {
                 if (xhr.status < 200 || xhr.status >= 300) {
-                    reject(xhr.responseText);
+                    if (method === HTTP_REQUEST_TYPE.POST) {
+                        reject(BrowserAuthError.createPostRequestFailedError("Failed with status " + xhr.status, url));
+                    }
+                    else {
+                        reject(BrowserAuthError.createGetRequestFailedError("Failed with status " + xhr.status, url));
+                    }
                 }
                 try {
                     var jsonResponse = JSON.parse(xhr.responseText);
@@ -8848,16 +9138,26 @@ var XhrClient = /** @class */ (function () {
                     resolve(networkResponse);
                 }
                 catch (e) {
-                    reject(xhr.responseText);
+                    reject(BrowserAuthError.createFailedToParseNetworkResponseError(url));
                 }
             };
             xhr.onerror = function () {
-                reject(xhr.status);
+                if (window.navigator.onLine) {
+                    if (method === HTTP_REQUEST_TYPE.POST) {
+                        reject(BrowserAuthError.createPostRequestFailedError("Failed with status " + xhr.status, url));
+                    }
+                    else {
+                        reject(BrowserAuthError.createGetRequestFailedError("Failed with status " + xhr.status, url));
+                    }
+                }
+                else {
+                    reject(BrowserAuthError.createNoNetworkConnectivityError());
+                }
             };
-            if (method === "POST" && options && options.body) {
+            if (method === HTTP_REQUEST_TYPE.POST && options && options.body) {
                 xhr.send(options.body);
             }
-            else if (method === "GET") {
+            else if (method === HTTP_REQUEST_TYPE.GET) {
                 xhr.send();
             }
             else {
@@ -8912,26 +9212,6 @@ var BrowserUtils = /** @class */ (function () {
     function BrowserUtils() {
     }
     // #region Window Navigation and URL management
-    /**
-     * Used to redirect the browser to the STS authorization endpoint
-     * @param {string} urlNavigate - URL of the authorization endpoint
-     * @param {boolean} noHistory - boolean flag, uses .replace() instead of .assign() if true
-     */
-    BrowserUtils.navigateWindow = function (urlNavigate, navigationTimeout, logger, noHistory) {
-        if (noHistory) {
-            window.location.replace(urlNavigate);
-        }
-        else {
-            window.location.assign(urlNavigate);
-        }
-        // To block code from running after navigation, this should not throw if navigation succeeds
-        return new Promise(function (resolve) {
-            setTimeout(function () {
-                logger.warning("Expected to navigate away from the current page but timeout occurred.");
-                resolve();
-            }, navigationTimeout);
-        });
-    };
     /**
      * Clears hash from window url.
      */
@@ -9009,6 +9289,15 @@ var BrowserUtils = /** @class */ (function () {
         }
     };
     /**
+     * Block redirectUri loaded in popup from calling AcquireToken APIs
+     */
+    BrowserUtils.blockAcquireTokenInPopups = function () {
+        // Popups opened by msal popup APIs are given a name that starts with "msal."
+        if (window.opener && window.opener !== window && typeof window.name === "string" && window.name.indexOf(BrowserConstants.POPUP_NAME_PREFIX + ".") === 0) {
+            throw BrowserAuthError.createBlockAcquireTokenInPopupsError();
+        }
+    };
+    /**
      * Throws error if token requests are made in non-browser environment
      * @param isBrowserEnvironment Flag indicating if environment is a browser.
      */
@@ -9030,6 +9319,50 @@ var BrowserUtils = /** @class */ (function () {
         return isIE || isEdge;
     };
     return BrowserUtils;
+}());
+
+/*
+ * Copyright (c) Microsoft Corporation. All rights reserved.
+ * Licensed under the MIT License.
+ */
+var NavigationClient = /** @class */ (function () {
+    function NavigationClient() {
+    }
+    /**
+     * Navigates to other pages within the same web application
+     * @param url
+     * @param options
+     */
+    NavigationClient.prototype.navigateInternal = function (url, options) {
+        return NavigationClient.defaultNavigateWindow(url, options);
+    };
+    /**
+     * Navigates to other pages outside the web application i.e. the Identity Provider
+     * @param url
+     * @param options
+     */
+    NavigationClient.prototype.navigateExternal = function (url, options) {
+        return NavigationClient.defaultNavigateWindow(url, options);
+    };
+    /**
+     * Default navigation implementation invoked by the internal and external functions
+     * @param url
+     * @param options
+     */
+    NavigationClient.defaultNavigateWindow = function (url, options) {
+        if (options.noHistory) {
+            window.location.replace(url);
+        }
+        else {
+            window.location.assign(url);
+        }
+        return new Promise(function (resolve) {
+            setTimeout(function () {
+                resolve(true);
+            }, options.timeout);
+        });
+    };
+    return NavigationClient;
 }());
 
 /*
@@ -9067,16 +9400,18 @@ function buildConfiguration(_a, isBrowserEnvironment) {
     // Default cache options for browser
     var DEFAULT_CACHE_OPTIONS = {
         cacheLocation: BrowserCacheLocation.SessionStorage,
-        storeAuthStateInCookie: false
+        storeAuthStateInCookie: false,
+        secureCookies: false
     };
     // Default logger options for browser
     var DEFAULT_LOGGER_OPTIONS = {
+        // eslint-disable-next-line @typescript-eslint/no-empty-function
         loggerCallback: function () { },
         logLevel: LogLevel.Info,
         piiLoggingEnabled: false
     };
     // Default system options for browser
-    var DEFAULT_BROWSER_SYSTEM_OPTIONS = __assign(__assign({}, DEFAULT_SYSTEM_OPTIONS), { loggerOptions: DEFAULT_LOGGER_OPTIONS, networkClient: isBrowserEnvironment ? BrowserUtils.getBrowserNetworkClient() : StubbedNetworkModule, loadFrameTimeout: 0, 
+    var DEFAULT_BROWSER_SYSTEM_OPTIONS = __assign(__assign({}, DEFAULT_SYSTEM_OPTIONS), { loggerOptions: DEFAULT_LOGGER_OPTIONS, networkClient: isBrowserEnvironment ? BrowserUtils.getBrowserNetworkClient() : StubbedNetworkModule, navigationClient: new NavigationClient(), loadFrameTimeout: 0, 
         // If loadFrameTimeout is provided, use that as default.
         windowHashTimeout: (userInputSystem && userInputSystem.loadFrameTimeout) || DEFAULT_POPUP_TIMEOUT_MS, iframeHashTimeout: (userInputSystem && userInputSystem.loadFrameTimeout) || DEFAULT_IFRAME_TIMEOUT_MS, navigateFrameWait: isBrowserEnvironment && BrowserUtils.detectIEOrEdge() ? 500 : 0, redirectNavigationTimeout: DEFAULT_REDIRECT_TIMEOUT_MS, asyncPopups: false, allowRedirectInIframe: false });
     var overlayedConfig = {
@@ -9176,41 +9511,56 @@ var RedirectHandler = /** @class */ (function (_super) {
      * @param urlNavigate
      */
     RedirectHandler.prototype.initiateAuthRequest = function (requestUrl, params) {
-        // Navigate if valid URL
-        if (!StringUtils.isEmpty(requestUrl)) {
-            // Cache start page, returns to this page after redirectUri if navigateToLoginRequestUrl is true
-            if (params.redirectStartPage) {
-                this.browserStorage.setTemporaryCache(TemporaryCacheKeys.ORIGIN_URI, params.redirectStartPage, true);
-            }
-            // Set interaction status in the library.
-            this.browserStorage.setTemporaryCache(TemporaryCacheKeys.INTERACTION_STATUS_KEY, BrowserConstants.INTERACTION_IN_PROGRESS_VALUE, true);
-            this.browserStorage.cacheCodeRequest(this.authCodeRequest, this.browserCrypto);
-            this.authModule.logger.infoPii("Navigate to:" + requestUrl);
-            // If onRedirectNavigate is implemented, invoke it and provide requestUrl
-            if (typeof params.onRedirectNavigate === "function") {
-                this.authModule.logger.verbose("Invoking onRedirectNavigate callback");
-                var navigate = params.onRedirectNavigate(requestUrl);
-                // Returning false from onRedirectNavigate will stop navigation
-                if (navigate !== false) {
-                    this.authModule.logger.verbose("onRedirectNavigate did not return false, navigating");
-                    return BrowserUtils.navigateWindow(requestUrl, params.redirectTimeout, this.authModule.logger);
+        return __awaiter(this, void 0, void 0, function () {
+            var navigationOptions, navigate;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        this.authModule.logger.verbose("RedirectHandler.initiateAuthRequest called");
+                        if (!!StringUtils.isEmpty(requestUrl)) return [3 /*break*/, 7];
+                        // Cache start page, returns to this page after redirectUri if navigateToLoginRequestUrl is true
+                        if (params.redirectStartPage) {
+                            this.authModule.logger.verbose("RedirectHandler.initiateAuthRequest: redirectStartPage set to true, caching start page");
+                            this.browserStorage.setTemporaryCache(TemporaryCacheKeys.ORIGIN_URI, params.redirectStartPage, true);
+                        }
+                        // Set interaction status in the library.
+                        this.browserStorage.setTemporaryCache(TemporaryCacheKeys.INTERACTION_STATUS_KEY, BrowserConstants.INTERACTION_IN_PROGRESS_VALUE, true);
+                        this.browserStorage.cacheCodeRequest(this.authCodeRequest, this.browserCrypto);
+                        this.authModule.logger.infoPii("RedirectHandler.initiateAuthRequest: Navigate to:" + requestUrl);
+                        navigationOptions = {
+                            apiId: ApiId.acquireTokenRedirect,
+                            timeout: params.redirectTimeout,
+                            noHistory: false
+                        };
+                        if (!(typeof params.onRedirectNavigate === "function")) return [3 /*break*/, 4];
+                        this.authModule.logger.verbose("RedirectHandler.initiateAuthRequest: Invoking onRedirectNavigate callback");
+                        navigate = params.onRedirectNavigate(requestUrl);
+                        if (!(navigate !== false)) return [3 /*break*/, 2];
+                        this.authModule.logger.verbose("RedirectHandler.initiateAuthRequest: onRedirectNavigate did not return false, navigating");
+                        return [4 /*yield*/, params.navigationClient.navigateExternal(requestUrl, navigationOptions)];
+                    case 1:
+                        _a.sent();
+                        return [2 /*return*/];
+                    case 2:
+                        this.authModule.logger.verbose("RedirectHandler.initiateAuthRequest: onRedirectNavigate returned false, stopping navigation");
+                        return [2 /*return*/];
+                    case 3: return [3 /*break*/, 6];
+                    case 4:
+                        // Navigate window to request URL
+                        this.authModule.logger.verbose("RedirectHandler.initiateAuthRequest: Navigating window to navigate url");
+                        return [4 /*yield*/, params.navigationClient.navigateExternal(requestUrl, navigationOptions)];
+                    case 5:
+                        _a.sent();
+                        return [2 /*return*/];
+                    case 6: return [3 /*break*/, 8];
+                    case 7:
+                        // Throw error if request URL is empty.
+                        this.authModule.logger.info("RedirectHandler.initiateAuthRequest: Navigate url is empty");
+                        throw BrowserAuthError.createEmptyNavigationUriError();
+                    case 8: return [2 /*return*/];
                 }
-                else {
-                    this.authModule.logger.verbose("onRedirectNavigate returned false, stopping navigation");
-                    return Promise.resolve();
-                }
-            }
-            else {
-                // Navigate window to request URL
-                this.authModule.logger.verbose("Navigating window to navigate url");
-                return BrowserUtils.navigateWindow(requestUrl, params.redirectTimeout, this.authModule.logger);
-            }
-        }
-        else {
-            // Throw error if request URL is empty.
-            this.authModule.logger.info("Navigate url is empty");
-            throw BrowserAuthError.createEmptyNavigationUriError();
-        }
+            });
+        });
     };
     /**
      * Handle authorization code response in the window.
@@ -9222,6 +9572,7 @@ var RedirectHandler = /** @class */ (function (_super) {
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
+                        this.authModule.logger.verbose("RedirectHandler.handleCodeResponse called");
                         // Check that location hash isn't empty.
                         if (StringUtils.isEmpty(locationHash)) {
                             throw BrowserAuthError.createEmptyHashError(locationHash);
@@ -9266,51 +9617,105 @@ var RedirectHandler = /** @class */ (function (_super) {
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
  */
-/**
- * This class implements the interaction handler base class for browsers. It is written specifically for handling
- * popup window scenarios. It includes functions for monitoring the popup window for a hash.
- */
-var PopupHandler = /** @class */ (function (_super) {
-    __extends(PopupHandler, _super);
-    function PopupHandler(authCodeModule, storageImpl, authCodeRequest) {
-        var _this = _super.call(this, authCodeModule, storageImpl, authCodeRequest) || this;
+var PopupUtils = /** @class */ (function () {
+    function PopupUtils(storageImpl, logger) {
+        this.browserStorage = storageImpl;
+        this.logger = logger;
         // Properly sets this reference for the unload event.
-        _this.unloadWindow = _this.unloadWindow.bind(_this);
-        return _this;
+        this.unloadWindow = this.unloadWindow.bind(this);
     }
     /**
-     * Opens a popup window with given request Url.
-     * @param requestUrl
+     * @hidden
+     *
+     * Configures popup window for login.
+     *
+     * @param urlNavigate
+     * @param title
+     * @param popUpWidth
+     * @param popUpHeight
+     * @ignore
+     * @hidden
      */
-    PopupHandler.prototype.initiateAuthRequest = function (requestUrl, params) {
-        // Check that request url is not empty.
-        if (!StringUtils.isEmpty(requestUrl)) {
-            // Set interaction status in the library.
-            this.browserStorage.setTemporaryCache(TemporaryCacheKeys.INTERACTION_STATUS_KEY, BrowserConstants.INTERACTION_IN_PROGRESS_VALUE, true);
-            this.authModule.logger.infoPii("Navigate to:" + requestUrl);
-            // Open the popup window to requestUrl.
-            return this.openPopup(requestUrl, params.popupName, params.popup);
+    PopupUtils.prototype.openPopup = function (urlNavigate, popupName, popup) {
+        try {
+            var popupWindow = void 0;
+            // Popup window passed in, setting url to navigate to
+            if (popup) {
+                popupWindow = popup;
+                this.logger.verbosePii("Navigating popup window to: " + urlNavigate);
+                popupWindow.location.assign(urlNavigate);
+            }
+            else if (typeof popup === "undefined") {
+                // Popup will be undefined if it was not passed in
+                this.logger.verbosePii("Opening popup window to: " + urlNavigate);
+                popupWindow = PopupUtils.openSizedPopup(urlNavigate, popupName);
+            }
+            // Popup will be null if popups are blocked
+            if (!popupWindow) {
+                throw BrowserAuthError.createEmptyWindowCreatedError();
+            }
+            if (popupWindow.focus) {
+                popupWindow.focus();
+            }
+            this.currentWindow = popupWindow;
+            window.addEventListener("beforeunload", this.unloadWindow);
+            return popupWindow;
         }
-        else {
-            // Throw error if request URL is empty.
-            this.authModule.logger.error("Navigate url is empty");
-            throw BrowserAuthError.createEmptyNavigationUriError();
+        catch (e) {
+            this.logger.error("error opening popup " + e.message);
+            this.browserStorage.removeItem(this.browserStorage.generateCacheKey(TemporaryCacheKeys.INTERACTION_STATUS_KEY));
+            throw BrowserAuthError.createPopupWindowError(e.toString());
         }
     };
+    PopupUtils.openSizedPopup = function (urlNavigate, popupName) {
+        /**
+         * adding winLeft and winTop to account for dual monitor
+         * using screenLeft and screenTop for IE8 and earlier
+         */
+        var winLeft = window.screenLeft ? window.screenLeft : window.screenX;
+        var winTop = window.screenTop ? window.screenTop : window.screenY;
+        /**
+         * window.innerWidth displays browser window"s height and width excluding toolbars
+         * using document.documentElement.clientWidth for IE8 and earlier
+         */
+        var width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+        var height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+        var left = Math.max(0, ((width / 2) - (BrowserConstants.POPUP_WIDTH / 2)) + winLeft);
+        var top = Math.max(0, ((height / 2) - (BrowserConstants.POPUP_HEIGHT / 2)) + winTop);
+        return window.open(urlNavigate, popupName, "width=" + BrowserConstants.POPUP_WIDTH + ", height=" + BrowserConstants.POPUP_HEIGHT + ", top=" + top + ", left=" + left + ", scrollbars=yes");
+    };
     /**
-     * Monitors a window until it loads a url with a known hash, or hits a specified timeout.
-     * @param popupWindow - window that is being monitored
-     * @param timeout - milliseconds until timeout
-     * @param urlNavigate - url that was navigated to
+     * Event callback to unload main window.
      */
-    PopupHandler.prototype.monitorPopupForHash = function (popupWindow, timeout) {
+    PopupUtils.prototype.unloadWindow = function (e) {
+        this.browserStorage.cleanRequestByInteractionType(InteractionType.Popup);
+        if (this.currentWindow) {
+            this.currentWindow.close();
+        }
+        // Guarantees browser unload will happen, so no other errors will be thrown.
+        e.preventDefault();
+    };
+    /**
+     * Closes popup, removes any state vars created during popup calls.
+     * @param popupWindow
+     */
+    PopupUtils.prototype.cleanPopup = function (popupWindow) {
+        if (popupWindow) {
+            // Close window.
+            popupWindow.close();
+        }
+        // Remove window unload function
+        window.removeEventListener("beforeunload", this.unloadWindow);
+        // Interaction is completed - remove interaction status.
+        this.browserStorage.removeItem(this.browserStorage.generateCacheKey(TemporaryCacheKeys.INTERACTION_STATUS_KEY));
+    };
+    /**
+     * Monitors a window until it loads a url with the same origin.
+     * @param popupWindow - window that is being monitored
+     */
+    PopupUtils.prototype.monitorPopupForSameOrigin = function (popupWindow) {
         var _this = this;
         return new Promise(function (resolve, reject) {
-            if (timeout < DEFAULT_POPUP_TIMEOUT_MS) {
-                _this.authModule.logger.warning("system.loadFrameTimeout or system.windowHashTimeout set to lower (" + timeout + "ms) than the default (" + DEFAULT_POPUP_TIMEOUT_MS + "ms). This may result in timeouts.");
-            }
-            var maxTicks = timeout / BrowserConstants.POLL_INTERVAL_MS;
-            var ticks = 0;
             var intervalId = setInterval(function () {
                 if (popupWindow.closed) {
                     // Window is closed
@@ -9333,116 +9738,86 @@ var PopupHandler = /** @class */ (function (_super) {
                 if (StringUtils.isEmpty(href) || href === "about:blank") {
                     return;
                 }
-                // Only run clock when we are on same domain
-                ticks++;
-                var contentHash = popupWindow.location.hash;
-                if (UrlString.hashContainsKnownProperties(contentHash)) {
-                    // Success case
-                    _this.cleanPopup(popupWindow);
-                    clearInterval(intervalId);
-                    resolve(contentHash);
-                    return;
-                }
-                else if (ticks > maxTicks) {
-                    // Timeout error
-                    _this.cleanPopup(popupWindow);
-                    clearInterval(intervalId);
-                    reject(BrowserAuthError.createMonitorPopupTimeoutError());
-                    return;
-                }
+                clearInterval(intervalId);
+                resolve();
             }, BrowserConstants.POLL_INTERVAL_MS);
         });
-    };
-    /**
-     * @hidden
-     *
-     * Configures popup window for login.
-     *
-     * @param urlNavigate
-     * @param title
-     * @param popUpWidth
-     * @param popUpHeight
-     * @ignore
-     * @hidden
-     */
-    PopupHandler.prototype.openPopup = function (urlNavigate, popupName, popup) {
-        try {
-            var popupWindow = void 0;
-            // Popup window passed in, setting url to navigate to
-            if (popup) {
-                popupWindow = popup;
-                popupWindow.location.assign(urlNavigate);
-            }
-            else if (typeof popup === "undefined") {
-                // Popup will be undefined if it was not passed in
-                popupWindow = PopupHandler.openSizedPopup(urlNavigate, popupName);
-            }
-            // Popup will be null if popups are blocked
-            if (!popupWindow) {
-                throw BrowserAuthError.createEmptyWindowCreatedError();
-            }
-            if (popupWindow.focus) {
-                popupWindow.focus();
-            }
-            this.currentWindow = popupWindow;
-            window.addEventListener("beforeunload", this.unloadWindow);
-            return popupWindow;
-        }
-        catch (e) {
-            this.authModule.logger.error("error opening popup " + e.message);
-            this.browserStorage.removeItem(this.browserStorage.generateCacheKey(TemporaryCacheKeys.INTERACTION_STATUS_KEY));
-            throw BrowserAuthError.createPopupWindowError(e.toString());
-        }
-    };
-    PopupHandler.openSizedPopup = function (urlNavigate, popupName) {
-        /**
-         * adding winLeft and winTop to account for dual monitor
-         * using screenLeft and screenTop for IE8 and earlier
-         */
-        var winLeft = window.screenLeft ? window.screenLeft : window.screenX;
-        var winTop = window.screenTop ? window.screenTop : window.screenY;
-        /**
-         * window.innerWidth displays browser window"s height and width excluding toolbars
-         * using document.documentElement.clientWidth for IE8 and earlier
-         */
-        var width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
-        var height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
-        var left = Math.max(0, ((width / 2) - (BrowserConstants.POPUP_WIDTH / 2)) + winLeft);
-        var top = Math.max(0, ((height / 2) - (BrowserConstants.POPUP_HEIGHT / 2)) + winTop);
-        return window.open(urlNavigate, popupName, "width=" + BrowserConstants.POPUP_WIDTH + ", height=" + BrowserConstants.POPUP_HEIGHT + ", top=" + top + ", left=" + left + ", scrollbars=yes");
-    };
-    /**
-     * Event callback to unload main window.
-     */
-    PopupHandler.prototype.unloadWindow = function (e) {
-        this.browserStorage.cleanRequestByInteractionType(InteractionType.Popup);
-        if (this.currentWindow) {
-            this.currentWindow.close();
-        }
-        // Guarantees browser unload will happen, so no other errors will be thrown.
-        e.preventDefault();
-    };
-    /**
-     * Closes popup, removes any state vars created during popup calls.
-     * @param popupWindow
-     */
-    PopupHandler.prototype.cleanPopup = function (popupWindow) {
-        if (popupWindow) {
-            // Close window.
-            popupWindow.close();
-        }
-        // Remove window unload function
-        window.removeEventListener("beforeunload", this.unloadWindow);
-        // Interaction is completed - remove interaction status.
-        this.browserStorage.removeItem(this.browserStorage.generateCacheKey(TemporaryCacheKeys.INTERACTION_STATUS_KEY));
     };
     /**
      * Generates the name for the popup based on the client id and request
      * @param clientId
      * @param request
      */
-    PopupHandler.generatePopupName = function (clientId, request) {
-        return "msal." + clientId + "." + request.scopes.join("-") + "." + request.authority + "." + request.correlationId;
+    PopupUtils.generatePopupName = function (clientId, request) {
+        return BrowserConstants.POPUP_NAME_PREFIX + "." + clientId + "." + request.scopes.join("-") + "." + request.authority + "." + request.correlationId;
+    };
+    /**
+     * Generates the name for the popup based on the client id and request for logouts
+     * @param clientId
+     * @param request
+     */
+    PopupUtils.generateLogoutPopupName = function (clientId, request) {
+        var homeAccountId = request.account && request.account.homeAccountId;
+        return BrowserConstants.POPUP_NAME_PREFIX + "." + clientId + "." + homeAccountId + "." + request.correlationId;
+    };
+    return PopupUtils;
+}());
+
+/*
+ * Copyright (c) Microsoft Corporation. All rights reserved.
+ * Licensed under the MIT License.
+ */
+/**
+ * This class implements the interaction handler base class for browsers. It is written specifically for handling
+ * popup window scenarios. It includes functions for monitoring the popup window for a hash.
+ */
+var PopupHandler = /** @class */ (function (_super) {
+    __extends(PopupHandler, _super);
+    function PopupHandler(authCodeModule, storageImpl, authCodeRequest) {
+        var _this = _super.call(this, authCodeModule, storageImpl, authCodeRequest) || this;
+        // Properly sets this reference for the unload event.
+        _this.popupUtils = new PopupUtils(storageImpl, authCodeModule.logger);
+        return _this;
+    }
+    /**
+     * Opens a popup window with given request Url.
+     * @param requestUrl
+     */
+    PopupHandler.prototype.initiateAuthRequest = function (requestUrl, params) {
+        // Check that request url is not empty.
+        if (!StringUtils.isEmpty(requestUrl)) {
+            // Set interaction status in the library.
+            this.browserStorage.setTemporaryCache(TemporaryCacheKeys.INTERACTION_STATUS_KEY, BrowserConstants.INTERACTION_IN_PROGRESS_VALUE, true);
+            this.authModule.logger.infoPii("Navigate to:" + requestUrl);
+            // Open the popup window to requestUrl.
+            return this.popupUtils.openPopup(requestUrl, params.popupName, params.popup);
+        }
+        else {
+            // Throw error if request URL is empty.
+            this.authModule.logger.error("Navigate url is empty");
+            throw BrowserAuthError.createEmptyNavigationUriError();
+        }
+    };
+    /**
+     * Monitors a window until it loads a url with a known hash, or hits a specified timeout.
+     * @param popupWindow - window that is being monitored
+     * @param timeout - milliseconds until timeout
+     */
+    PopupHandler.prototype.monitorPopupForHash = function (popupWindow) {
+        var _this = this;
+        return this.popupUtils.monitorPopupForSameOrigin(popupWindow).then(function () {
+            var contentHash = popupWindow.location.hash;
+            _this.popupUtils.cleanPopup(popupWindow);
+            if (!contentHash) {
+                throw BrowserAuthError.createEmptyHashError(popupWindow.location.href);
+            }
+            if (UrlString.hashContainsKnownProperties(contentHash)) {
+                return contentHash;
+            }
+            else {
+                throw BrowserAuthError.createHashDoesNotContainKnownPropertiesError();
+            }
+        });
     };
     return PopupHandler;
 }(InteractionHandler));
@@ -9601,7 +9976,7 @@ var SilentHandler = /** @class */ (function (_super) {
 
 /* eslint-disable header/header */
 var name$1 = "@azure/msal-browser";
-var version$1 = "2.11.2";
+var version$1 = "2.14.1";
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -9621,9 +9996,11 @@ var EventType;
     EventType["SSO_SILENT_FAILURE"] = "msal:ssoSilentFailure";
     EventType["HANDLE_REDIRECT_START"] = "msal:handleRedirectStart";
     EventType["HANDLE_REDIRECT_END"] = "msal:handleRedirectEnd";
+    EventType["POPUP_OPENED"] = "msal:popupOpened";
     EventType["LOGOUT_START"] = "msal:logoutStart";
     EventType["LOGOUT_SUCCESS"] = "msal:logoutSuccess";
     EventType["LOGOUT_FAILURE"] = "msal:logoutFailure";
+    EventType["LOGOUT_END"] = "msal:logoutEnd";
 })(EventType || (EventType = {}));
 
 /*
@@ -9668,6 +10045,10 @@ var ClientApplication = /** @class */ (function () {
         this.logger = new Logger(this.config.system.loggerOptions, name$1, version$1);
         // Initialize the network module class.
         this.networkClient = this.config.system.networkClient;
+        // Initialize the navigation client class.
+        this.navigationClient = this.config.system.navigationClient;
+        // Initialize redirectResponse Map
+        this.redirectResponse = new Map();
         if (!this.isBrowserEnvironment) {
             this.browserStorage = DEFAULT_BROWSER_CACHE_MANAGER(this.config.auth.clientId, this.logger);
             this.browserCrypto = DEFAULT_CRYPTO_IMPLEMENTATION;
@@ -9688,14 +10069,18 @@ var ClientApplication = /** @class */ (function () {
      */
     ClientApplication.prototype.handleRedirectPromise = function (hash) {
         return __awaiter(this, void 0, void 0, function () {
-            var loggedInAccounts;
+            var loggedInAccounts, redirectResponseKey, response;
             var _this = this;
             return __generator(this, function (_a) {
                 this.emitEvent(EventType.HANDLE_REDIRECT_START, InteractionType.Redirect);
                 this.logger.verbose("handleRedirectPromise called");
                 loggedInAccounts = this.getAllAccounts();
                 if (this.isBrowserEnvironment) {
-                    return [2 /*return*/, this.handleRedirectResponse(hash)
+                    redirectResponseKey = hash || Constants.EMPTY_STRING;
+                    response = this.redirectResponse.get(redirectResponseKey);
+                    if (typeof response === "undefined") {
+                        this.logger.verbose("handleRedirectPromise has been called for the first time, storing the promise");
+                        response = this.handleRedirectResponse(hash)
                             .then(function (result) {
                             if (result) {
                                 // Emit login event if number of accounts change
@@ -9722,7 +10107,13 @@ var ClientApplication = /** @class */ (function () {
                             }
                             _this.emitEvent(EventType.HANDLE_REDIRECT_END, InteractionType.Redirect);
                             throw e;
-                        })];
+                        });
+                        this.redirectResponse.set(redirectResponseKey, response);
+                    }
+                    else {
+                        this.logger.verbose("handleRedirectPromise has been called previously, returning the result from the first call");
+                    }
+                    return [2 /*return*/, response];
                 }
                 this.logger.verbose("handleRedirectPromise returns null, not browser environment");
                 return [2 /*return*/, null];
@@ -9737,7 +10128,7 @@ var ClientApplication = /** @class */ (function () {
      */
     ClientApplication.prototype.handleRedirectResponse = function (hash) {
         return __awaiter(this, void 0, void 0, function () {
-            var responseHash, state, loginRequestUrl, loginRequestUrlNormalized, currentUrlNormalized, handleHashResult, homepage;
+            var responseHash, state, loginRequestUrl, loginRequestUrlNormalized, currentUrlNormalized, handleHashResult, navigationOptions, processHashOnRedirect, homepage;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
@@ -9781,29 +10172,41 @@ var ClientApplication = /** @class */ (function () {
                         this.logger.verbose("NavigateToLoginRequestUrl set to false, handling hash");
                         return [2 /*return*/, this.handleHash(responseHash, state)];
                     case 3:
-                        if (!!BrowserUtils.isInIframe()) return [3 /*break*/, 7];
+                        if (!!BrowserUtils.isInIframe()) return [3 /*break*/, 8];
                         /*
                          * Returned from authority using redirect - need to perform navigation before processing response
                          * Cache the hash to be retrieved after the next redirect
                          */
                         this.browserStorage.setTemporaryCache(TemporaryCacheKeys.URL_HASH, responseHash, true);
+                        navigationOptions = {
+                            apiId: ApiId.handleRedirectPromise,
+                            timeout: this.config.system.redirectNavigationTimeout,
+                            noHistory: true
+                        };
+                        processHashOnRedirect = true;
                         if (!(!loginRequestUrl || loginRequestUrl === "null")) return [3 /*break*/, 5];
                         homepage = BrowserUtils.getHomepage();
                         // Cache the homepage under ORIGIN_URI to ensure cached hash is processed on homepage
                         this.browserStorage.setTemporaryCache(TemporaryCacheKeys.ORIGIN_URI, homepage, true);
                         this.logger.warning("Unable to get valid login request url from cache, redirecting to home page");
-                        return [4 /*yield*/, BrowserUtils.navigateWindow(homepage, this.config.system.redirectNavigationTimeout, this.logger, true)];
+                        return [4 /*yield*/, this.navigationClient.navigateInternal(homepage, navigationOptions)];
                     case 4:
-                        _a.sent();
+                        processHashOnRedirect = _a.sent();
                         return [3 /*break*/, 7];
                     case 5:
                         // Navigate to page that initiated the redirect request
                         this.logger.verbose("Navigating to loginRequestUrl: " + loginRequestUrl);
-                        return [4 /*yield*/, BrowserUtils.navigateWindow(loginRequestUrl, this.config.system.redirectNavigationTimeout, this.logger, true)];
+                        return [4 /*yield*/, this.navigationClient.navigateInternal(loginRequestUrl, navigationOptions)];
                     case 6:
-                        _a.sent();
+                        processHashOnRedirect = _a.sent();
                         _a.label = 7;
-                    case 7: return [2 /*return*/, null];
+                    case 7:
+                        // If navigateInternal implementation returns false, handle the hash now
+                        if (!processHashOnRedirect) {
+                            return [2 /*return*/, this.handleHash(responseHash, state)];
+                        }
+                        _a.label = 8;
+                    case 8: return [2 /*return*/, null];
                 }
             });
         });
@@ -9927,6 +10330,7 @@ var ClientApplication = /** @class */ (function () {
                         redirectStartPage = this.getRedirectStartPage(request.redirectStartPage);
                         // Show the UI once the url has been created. Response will come back in the hash, which will be handled in the handleRedirectCallback function.
                         return [2 /*return*/, interactionHandler.initiateAuthRequest(navigateUrl, {
+                                navigationClient: this.navigationClient,
                                 redirectTimeout: this.config.system.redirectNavigationTimeout,
                                 redirectStartPage: redirectStartPage,
                                 onRedirectNavigate: request.onRedirectNavigate
@@ -9968,7 +10372,7 @@ var ClientApplication = /** @class */ (function () {
             // Since this function is syncronous we need to reject
             return Promise.reject(e);
         }
-        var popupName = PopupHandler.generatePopupName(this.config.auth.clientId, validRequest);
+        var popupName = PopupUtils.generatePopupName(this.config.auth.clientId, validRequest);
         // asyncPopups flag is true. Acquires token without first opening popup. Popup will be opened later asynchronously.
         if (this.config.system.asyncPopups) {
             this.logger.verbose("asyncPopups set to true, acquiring token");
@@ -9977,7 +10381,7 @@ var ClientApplication = /** @class */ (function () {
         else {
             // asyncPopups flag is set to false. Opens popup before acquiring token.
             this.logger.verbose("asyncPopup set to false, opening popup before acquiring token");
-            var popup = PopupHandler.openSizedPopup("about:blank", popupName);
+            var popup = PopupUtils.openSizedPopup("about:blank", popupName);
             return this.acquireTokenPopupAsync(validRequest, popupName, popup);
         }
     };
@@ -10022,7 +10426,8 @@ var ClientApplication = /** @class */ (function () {
                             popupName: popupName
                         };
                         popupWindow = interactionHandler.initiateAuthRequest(navigateUrl, popupParameters);
-                        return [4 /*yield*/, interactionHandler.monitorPopupForHash(popupWindow, this.config.system.windowHashTimeout)];
+                        this.emitEvent(EventType.POPUP_OPENED, InteractionType.Popup, { popupWindow: popupWindow }, null);
+                        return [4 /*yield*/, interactionHandler.monitorPopupForHash(popupWindow)];
                     case 5:
                         hash = _a.sent();
                         state = this.validateAndExtractStateFromHash(hash, InteractionType.Popup);
@@ -10084,7 +10489,7 @@ var ClientApplication = /** @class */ (function () {
                         _a.label = 1;
                     case 1:
                         _a.trys.push([1, 3, , 4]);
-                        return [4 /*yield*/, this.acquireTokenByIframe(request)];
+                        return [4 /*yield*/, this.acquireTokenByIframe(request, ApiId.ssoSilent)];
                     case 2:
                         silentTokenResult = _a.sent();
                         this.emitEvent(EventType.SSO_SILENT_SUCCESS, InteractionType.Silent, silentTokenResult);
@@ -10100,9 +10505,10 @@ var ClientApplication = /** @class */ (function () {
     };
     /**
      * This function uses a hidden iframe to fetch an authorization code from the eSTS. To be used for silent refresh token acquisition and renewal.
-     * @param request {@link SsoSilentRequest}
+     * @param request
+     * @param apiId - ApiId of the calling function. Used for telemetry.
      */
-    ClientApplication.prototype.acquireTokenByIframe = function (request) {
+    ClientApplication.prototype.acquireTokenByIframe = function (request, apiId) {
         return __awaiter(this, void 0, void 0, function () {
             var silentRequest, serverTelemetryManager, authCodeRequest, authClient, navigateUrl, e_5;
             return __generator(this, function (_a) {
@@ -10118,7 +10524,7 @@ var ClientApplication = /** @class */ (function () {
                             throw BrowserAuthError.createSilentPromptValueError(request.prompt);
                         }
                         silentRequest = this.initializeAuthorizationRequest(__assign(__assign({}, request), { prompt: PromptValue.NONE }), InteractionType.Silent);
-                        serverTelemetryManager = this.initializeServerTelemetryManager(ApiId.ssoSilent, silentRequest.correlationId);
+                        serverTelemetryManager = this.initializeServerTelemetryManager(apiId, silentRequest.correlationId);
                         _a.label = 1;
                     case 1:
                         _a.trys.push([1, 6, , 7]);
@@ -10183,7 +10589,7 @@ var ClientApplication = /** @class */ (function () {
                         isInvalidGrantError = (e_6.errorCode === BrowserConstants.INVALID_GRANT_ERROR);
                         if (!(isServerError && isInvalidGrantError && !isInteractionRequiredError)) return [3 /*break*/, 6];
                         this.logger.verbose("Refresh token expired or invalid, attempting acquire token by iframe");
-                        return [4 /*yield*/, this.acquireTokenByIframe(request)];
+                        return [4 /*yield*/, this.acquireTokenByIframe(request, ApiId.acquireTokenSilent_authCode)];
                     case 5: return [2 /*return*/, _a.sent()];
                     case 6: throw e_6;
                     case 7: return [2 /*return*/];
@@ -10220,54 +10626,182 @@ var ClientApplication = /** @class */ (function () {
     // #endregion
     // #region Logout
     /**
+     * Deprecated logout function. Use logoutRedirect or logoutPopup instead
+     * @param logoutRequest
+     * @deprecated
+     */
+    ClientApplication.prototype.logout = function (logoutRequest) {
+        return __awaiter(this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                this.logger.warning("logout API is deprecated and will be removed in msal-browser v3.0.0. Use logoutRedirect instead.");
+                return [2 /*return*/, this.logoutRedirect(logoutRequest)];
+            });
+        });
+    };
+    /**
      * Use to log out the current user, and redirect the user to the postLogoutRedirectUri.
      * Default behaviour is to redirect the user to `window.location.href`.
      * @param logoutRequest
      */
-    ClientApplication.prototype.logout = function (logoutRequest) {
+    ClientApplication.prototype.logoutRedirect = function (logoutRequest) {
         return __awaiter(this, void 0, void 0, function () {
-            var validLogoutRequest, serverTelemetryManager, authClient, logoutUri, navigate, e_7;
+            var validLogoutRequest, serverTelemetryManager, authClient, logoutUri, navigationOptions, navigate, e_7;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
                         this.preflightBrowserEnvironmentCheck(InteractionType.Redirect);
-                        this.logger.verbose("logout called");
+                        this.logger.verbose("logoutRedirect called");
                         validLogoutRequest = this.initializeLogoutRequest(logoutRequest);
                         serverTelemetryManager = this.initializeServerTelemetryManager(ApiId.logout, validLogoutRequest.correlationId);
                         _a.label = 1;
                     case 1:
-                        _a.trys.push([1, 3, , 4]);
+                        _a.trys.push([1, 9, , 10]);
                         this.emitEvent(EventType.LOGOUT_START, InteractionType.Redirect, logoutRequest);
                         return [4 /*yield*/, this.createAuthCodeClient(serverTelemetryManager, logoutRequest && logoutRequest.authority)];
                     case 2:
                         authClient = _a.sent();
                         logoutUri = authClient.getLogoutUri(validLogoutRequest);
-                        this.emitEvent(EventType.LOGOUT_SUCCESS, InteractionType.Redirect, validLogoutRequest);
                         if (!validLogoutRequest.account || AccountEntity.accountInfoIsEqual(validLogoutRequest.account, this.getActiveAccount())) {
-                            this.logger.verbose("Account not valid on validLogoutRequest, setting active account to null");
+                            this.logger.verbose("Setting active account to null");
                             this.setActiveAccount(null);
                         }
-                        // Check if onRedirectNavigate is implemented, and invoke it if so
-                        if (logoutRequest && typeof logoutRequest.onRedirectNavigate === "function") {
-                            navigate = logoutRequest.onRedirectNavigate(logoutUri);
-                            if (navigate !== false) {
-                                this.logger.verbose("Logout onRedirectNavigate did not return false, navigating");
-                                return [2 /*return*/, BrowserUtils.navigateWindow(logoutUri, this.config.system.redirectNavigationTimeout, this.logger)];
-                            }
-                            else {
-                                this.logger.verbose("Logout onRedirectNavigate returned false, stopping navigation");
-                            }
-                        }
-                        else {
-                            return [2 /*return*/, BrowserUtils.navigateWindow(logoutUri, this.config.system.redirectNavigationTimeout, this.logger)];
-                        }
-                        return [3 /*break*/, 4];
+                        navigationOptions = {
+                            apiId: ApiId.logout,
+                            timeout: this.config.system.redirectNavigationTimeout,
+                            noHistory: false
+                        };
+                        this.emitEvent(EventType.LOGOUT_SUCCESS, InteractionType.Redirect, validLogoutRequest);
+                        if (!(logoutRequest && typeof logoutRequest.onRedirectNavigate === "function")) return [3 /*break*/, 6];
+                        navigate = logoutRequest.onRedirectNavigate(logoutUri);
+                        if (!(navigate !== false)) return [3 /*break*/, 4];
+                        this.logger.verbose("Logout onRedirectNavigate did not return false, navigating");
+                        return [4 /*yield*/, this.navigationClient.navigateExternal(logoutUri, navigationOptions)];
                     case 3:
+                        _a.sent();
+                        return [2 /*return*/];
+                    case 4:
+                        this.logger.verbose("Logout onRedirectNavigate returned false, stopping navigation");
+                        _a.label = 5;
+                    case 5: return [3 /*break*/, 8];
+                    case 6: return [4 /*yield*/, this.navigationClient.navigateExternal(logoutUri, navigationOptions)];
+                    case 7:
+                        _a.sent();
+                        return [2 /*return*/];
+                    case 8: return [3 /*break*/, 10];
+                    case 9:
                         e_7 = _a.sent();
                         serverTelemetryManager.cacheFailedRequest(e_7);
                         this.emitEvent(EventType.LOGOUT_FAILURE, InteractionType.Redirect, null, e_7);
                         throw e_7;
-                    case 4: return [2 /*return*/];
+                    case 10:
+                        this.emitEvent(EventType.LOGOUT_END, InteractionType.Redirect);
+                        return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * Clears local cache for the current user then opens a popup window prompting the user to sign-out of the server
+     * @param logoutRequest
+     */
+    ClientApplication.prototype.logoutPopup = function (logoutRequest) {
+        var validLogoutRequest;
+        try {
+            this.preflightBrowserEnvironmentCheck(InteractionType.Popup);
+            this.logger.verbose("logoutPopup called");
+            validLogoutRequest = this.initializeLogoutRequest(logoutRequest);
+        }
+        catch (e) {
+            // Since this function is synchronous we need to reject
+            return Promise.reject(e);
+        }
+        var popupName = PopupUtils.generateLogoutPopupName(this.config.auth.clientId, validLogoutRequest);
+        var popup;
+        // asyncPopups flag is true. Acquires token without first opening popup. Popup will be opened later asynchronously.
+        if (this.config.system.asyncPopups) {
+            this.logger.verbose("asyncPopups set to true");
+        }
+        else {
+            // asyncPopups flag is set to false. Opens popup before logging out.
+            this.logger.verbose("asyncPopup set to false, opening popup");
+            popup = PopupUtils.openSizedPopup("about:blank", popupName);
+        }
+        var authority = logoutRequest && logoutRequest.authority;
+        var mainWindowRedirectUri = logoutRequest && logoutRequest.mainWindowRedirectUri;
+        return this.logoutPopupAsync(validLogoutRequest, popupName, authority, popup, mainWindowRedirectUri);
+    };
+    /**
+     *
+     * @param request
+     * @param popupName
+     * @param requestAuthority
+     * @param popup
+     */
+    ClientApplication.prototype.logoutPopupAsync = function (validRequest, popupName, requestAuthority, popup, mainWindowRedirectUri) {
+        return __awaiter(this, void 0, void 0, function () {
+            var serverTelemetryManager, authClient, logoutUri, popupUtils, popupWindow, e_8, navigationOptions, absoluteUrl, e_9;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        this.logger.verbose("logoutPopupAsync called");
+                        this.emitEvent(EventType.LOGOUT_START, InteractionType.Popup, validRequest);
+                        serverTelemetryManager = this.initializeServerTelemetryManager(ApiId.logoutPopup, validRequest.correlationId);
+                        _a.label = 1;
+                    case 1:
+                        _a.trys.push([1, 7, , 8]);
+                        this.browserStorage.setTemporaryCache(TemporaryCacheKeys.INTERACTION_STATUS_KEY, BrowserConstants.INTERACTION_IN_PROGRESS_VALUE, true);
+                        return [4 /*yield*/, this.createAuthCodeClient(serverTelemetryManager, requestAuthority)];
+                    case 2:
+                        authClient = _a.sent();
+                        logoutUri = authClient.getLogoutUri(validRequest);
+                        if (!validRequest.account || AccountEntity.accountInfoIsEqual(validRequest.account, this.getActiveAccount())) {
+                            this.logger.verbose("Setting active account to null");
+                            this.setActiveAccount(null);
+                        }
+                        this.emitEvent(EventType.LOGOUT_SUCCESS, InteractionType.Popup, validRequest);
+                        popupUtils = new PopupUtils(this.browserStorage, this.logger);
+                        popupWindow = popupUtils.openPopup(logoutUri, popupName, popup);
+                        this.emitEvent(EventType.POPUP_OPENED, InteractionType.Popup, { popupWindow: popupWindow }, null);
+                        _a.label = 3;
+                    case 3:
+                        _a.trys.push([3, 5, , 6]);
+                        // Don't care if this throws an error (User Cancelled)
+                        return [4 /*yield*/, popupUtils.monitorPopupForSameOrigin(popupWindow)];
+                    case 4:
+                        // Don't care if this throws an error (User Cancelled)
+                        _a.sent();
+                        this.logger.verbose("Popup successfully redirected to postLogoutRedirectUri");
+                        return [3 /*break*/, 6];
+                    case 5:
+                        e_8 = _a.sent();
+                        this.logger.verbose("Error occurred while monitoring popup for same origin. Session on server may remain active. Error: " + e_8);
+                        return [3 /*break*/, 6];
+                    case 6:
+                        popupUtils.cleanPopup(popupWindow);
+                        if (mainWindowRedirectUri) {
+                            navigationOptions = {
+                                apiId: ApiId.logoutPopup,
+                                timeout: this.config.system.redirectNavigationTimeout,
+                                noHistory: false
+                            };
+                            absoluteUrl = UrlString.getAbsoluteUrl(mainWindowRedirectUri, BrowserUtils.getCurrentUri());
+                            this.logger.verbose("Redirecting main window to url specified in the request");
+                            this.logger.verbosePii("Redirecing main window to: " + absoluteUrl);
+                            this.navigationClient.navigateInternal(absoluteUrl, navigationOptions);
+                        }
+                        else {
+                            this.logger.verbose("No main window navigation requested");
+                        }
+                        return [3 /*break*/, 8];
+                    case 7:
+                        e_9 = _a.sent();
+                        this.browserStorage.removeItem(this.browserStorage.generateCacheKey(TemporaryCacheKeys.INTERACTION_STATUS_KEY));
+                        this.emitEvent(EventType.LOGOUT_FAILURE, InteractionType.Popup, null, e_9);
+                        serverTelemetryManager.cacheFailedRequest(e_9);
+                        throw e_9;
+                    case 8:
+                        this.emitEvent(EventType.LOGOUT_END, InteractionType.Popup);
+                        return [2 /*return*/];
                 }
             });
         });
@@ -10555,6 +11089,8 @@ var ClientApplication = /** @class */ (function () {
         BrowserUtils.blockRedirectInIframe(interactionType, this.config.system.allowRedirectInIframe);
         // Block auth requests inside a hidden iframe
         BrowserUtils.blockReloadInHiddenIframes();
+        // Block redirectUri opened in a popup from calling MSAL APIs
+        BrowserUtils.blockAcquireTokenInPopups();
         // Block redirects if memory storage is enabled but storeAuthStateInCookie is not
         if (interactionType === InteractionType.Redirect &&
             this.config.cache.cacheLocation === BrowserCacheLocation.MemoryStorage &&
@@ -10571,6 +11107,14 @@ var ClientApplication = /** @class */ (function () {
         var authority = request.authority || this.config.auth.authority;
         var scopes = __spread(((request && request.scopes) || []));
         var correlationId = (request && request.correlationId) || this.browserCrypto.createNewGuid();
+        // Set authenticationScheme to BEARER if not explicitly set in the request
+        if (!request.authenticationScheme) {
+            request.authenticationScheme = AuthenticationScheme.BEARER;
+            this.logger.verbose("Authentication Scheme wasn't explicitly set in request, defaulting to \"Bearer\" request");
+        }
+        else {
+            this.logger.verbose("Authentication Scheme set to \"" + request.authenticationScheme + "\" as configured in Auth request");
+        }
         var validatedRequest = __assign(__assign({}, request), { correlationId: correlationId,
             authority: authority,
             scopes: scopes });
@@ -10606,8 +11150,7 @@ var ClientApplication = /** @class */ (function () {
             interactionType: interactionType
         };
         var state = ProtocolUtils.setRequestState(this.browserCrypto, (request && request.state) || "", browserState);
-        var authenticationScheme = request.authenticationScheme || AuthenticationScheme.BEARER;
-        var validatedRequest = __assign(__assign({}, this.initializeBaseRequest(request)), { redirectUri: redirectUri, state: state, nonce: request.nonce || this.browserCrypto.createNewGuid(), responseMode: ResponseMode.FRAGMENT, authenticationScheme: authenticationScheme });
+        var validatedRequest = __assign(__assign({}, this.initializeBaseRequest(request)), { redirectUri: redirectUri, state: state, nonce: request.nonce || this.browserCrypto.createNewGuid(), responseMode: ResponseMode.FRAGMENT });
         var account = request.account || this.getActiveAccount();
         if (account) {
             this.logger.verbose("Setting validated request account");
@@ -10656,6 +11199,10 @@ var ClientApplication = /** @class */ (function () {
      */
     ClientApplication.prototype.initializeLogoutRequest = function (logoutRequest) {
         this.logger.verbose("initializeLogoutRequest called");
+        // Check if interaction is in progress. Throw error if true.
+        if (this.interactionInProgress()) {
+            throw BrowserAuthError.createInteractionInProgressError();
+        }
         var validLogoutRequest = __assign({ correlationId: this.browserCrypto.createNewGuid() }, logoutRequest);
         /*
          * Only set redirect uri if logout request isn't provided or the set uri isn't null.
@@ -10750,6 +11297,13 @@ var ClientApplication = /** @class */ (function () {
         // Validate the SKU passed in is one we expect
         this.wrapperSKU = sku;
         this.wrapperVer = version;
+    };
+    /**
+     * Sets navigation client
+     * @param navigationClient
+     */
+    ClientApplication.prototype.setNavigationClient = function (navigationClient) {
+        this.navigationClient = navigationClient;
     };
     return ClientApplication;
 }());
@@ -10909,6 +11463,12 @@ var stubbedPublicClientApplication = {
     logout: function () {
         return Promise.reject(BrowserConfigurationAuthError.createStubPcaInstanceCalledError());
     },
+    logoutRedirect: function () {
+        return Promise.reject(BrowserConfigurationAuthError.createStubPcaInstanceCalledError());
+    },
+    logoutPopup: function () {
+        return Promise.reject(BrowserConfigurationAuthError.createStubPcaInstanceCalledError());
+    },
     ssoSilent: function () {
         return Promise.reject(BrowserConfigurationAuthError.createStubPcaInstanceCalledError());
     },
@@ -10931,6 +11491,9 @@ var stubbedPublicClientApplication = {
         return null;
     },
     initializeWrapperLibrary: function () {
+        return;
+    },
+    setNavigationClient: function () {
         return;
     }
 };
@@ -10966,7 +11529,7 @@ var EventMessageUtils = /** @class */ (function () {
             case EventType.HANDLE_REDIRECT_END:
             case EventType.LOGIN_FAILURE:
             case EventType.SSO_SILENT_FAILURE:
-            case EventType.LOGOUT_FAILURE:
+            case EventType.LOGOUT_END:
                 return InteractionStatus.None;
             case EventType.ACQUIRE_TOKEN_SUCCESS:
             case EventType.ACQUIRE_TOKEN_FAILURE:
@@ -10980,4 +11543,4 @@ var EventMessageUtils = /** @class */ (function () {
     return EventMessageUtils;
 }());
 
-export { EventType as E, InteractionType as I, Logger as L, PublicClientApplication as P, WrapperSKU as W, InteractionStatus as a, EventMessageUtils as b, stubbedPublicClientApplication as s };
+export { AccountEntity as A, EventMessageUtils as E, InteractionStatus as I, Logger as L, PublicClientApplication as P, WrapperSKU as W, EventType as a, stubbedPublicClientApplication as s };

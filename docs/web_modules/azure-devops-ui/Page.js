@@ -1,12 +1,25 @@
-import { _ as __extends, S as SurfaceContext, n as SurfaceBackground, j as ObservableArray } from '../common/Icon.Props-aa4785d7.js';
-import { a as css } from '../common/Util-c5aac4ed.js';
+import { _ as __extends, d as ObservableArray } from '../common/Observable-24aa1084.js';
+import '../common/core-1947a0ef.js';
 import { r as react } from '../common/index-abdc4d2d.js';
-import { I as Intersection, c as TabProvider, d as TabGroupProvider } from '../common/TabContent-218b1663.js';
-import '../common/index-2be6b7dd.js';
+import { I as Intersection } from '../common/Intersection-4b10b9db.js';
+import { S as SurfaceContext, a as SurfaceBackground } from '../common/Surface-779be6fe.js';
+import { a as TabProvider, b as TabGroupProvider } from '../common/TabContent-121c28a7.js';
+import '../common/Pill-1fe5d4a3.js';
+import '../common/Tooltip-69aedae2.js';
+import { c as css } from '../common/Util-e30cbaf3.js';
+import '../common/process-2545f00a.js';
 import '../common/_commonjsHelpers-4f955397.js';
-import '../common/ExpandableButton-0197ca49.js';
+import '../common/Screen-d33ca090.js';
+import '../common/SelectionObserver-a72f3be5.js';
+import '../common/Icon.Props-be292e60.js';
+import '../common/String-19e5561c.js';
+import '../common/Resources.Core-6b4f8906.js';
+import '../common/ExpandableButton-4f9f7aa8.js';
 import '../common/Accessibility-e11a7e50.js';
-import '../common/Focus-eab5ece8.js';
+import '../common/Focus-dd57f317.js';
+import '../common/Resources.Widgets-1363c6a9.js';
+import '../common/Color-c39ec9d4.js';
+import '../common/index-2be6b7dd.js';
 
 /** SNOWPACK INJECT STYLE: azure-devops-ui/Components/Page/Page.css */
 function __snowpack__injectStyle(css) {

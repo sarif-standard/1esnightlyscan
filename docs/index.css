@@ -1,102 +1,122 @@
 /* Subset of the styles originally provided by azure-devops-ui */
-
 input, select, textarea, button {
-	color: inherit;
-	font-family: inherit;
-	font-size: inherit
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
 }
 
 html, body {
-	height: 100%;
-	width: 100%;
+  height: 100%;
+  width: 100%;
 }
 
 body {
-	display: flex;
-	font-family: "Segoe UI", "-apple-system", BlinkMacSystemFont, Roboto, "Helvetica Neue", Helvetica, Ubuntu, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-	font-size: 0.875rem;
-	margin: 0;
+  display: flex;
+  font-family: "Segoe UI", "-apple-system", BlinkMacSystemFont, Roboto, "Helvetica Neue", Helvetica, Ubuntu, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 0.875rem;
+  margin: 0;
 }
 
 /* Project specific */
-
 body {
-	width: 100%;
-	overflow: hidden;
+  width: 100%;
+  overflow: hidden;
 }
 
 #root {
-	width: 100%;
-	display: flex;
-	flex-direction: column;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .center {
-	flex: 1 1 auto;
-	display: flex;
-	align-items: center;
-	justify-content: center;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .signinMessage {
-	margin-top: 16px;
-	text-align: center;
-	line-height: 1.5;
+  margin-top: 16px;
+  text-align: center;
+  line-height: 1.5;
 }
 
 .intro {
-	flex: 0 0 auto;
-	display: flex;
-	flex-direction: column;
-
-	padding: 0;
-	/* https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Box_Model/Mastering_margin_collapsing */
-	padding-top: 1px; /* prevent h1 margin collapse */
-	/* background-color: rgb(248, 248, 248); */
-
-	position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  /* https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Box_Model/Mastering_margin_collapsing */
+  padding-top: 1px;
+  /* prevent h1 margin collapse */
+  /* background-color: rgb(248, 248, 248); */
+  position: relative;
 }
 
 .introHeader {
-	display: flex;
-	align-items: center;
-	padding: 8px 32px; /* Merge with H1? */
+  display: flex;
+  align-items: center;
+  padding: 8px 32px;
+  /* Merge with H1? */
 }
 
 .introHeader *:not(:first-child) {
-	margin-left: 12px;
+  margin-left: 12px;
 }
 
 h1 {
-	font-size: 24px;
-	margin-top: 16px;
-	margin-bottom: 16px;
-	flex: 1 1 auto;
+  font-size: 24px;
+  margin-top: 16px;
+  margin-bottom: 16px;
+  flex: 1 1 auto;
+}
+
+.bolt-page {
+  height: unset !important;
+  /* h 100% not playing well with flex-col */
+  flex: 1 1 auto;
 }
 
 .viewer {
-	pointer-events: none;
-	flex: 1 1 auto;
-	overflow-y: auto;
-	opacity: 0;
-	box-shadow:
-		0 0px 5px 2px rgba(0, 0, 0, 0.10);
-	transition: opacity 250ms;
+  pointer-events: none;
+  flex: 1 1 auto;
+  overflow: hidden;
+  /* force scrollbars on descendants */
+  opacity: 0;
+  box-shadow: 0 0px 5px 2px rgba(0, 0, 0, 0.1);
+  transition: opacity 250ms;
+  display: flex;
+}
+.viewer > :first-child {
+  flex: 1 1 auto;
+  overflow-y: auto;
 }
 
 .viewer.viewerActive {
-	pointer-events: initial;
-	opacity: 1;
+  pointer-events: initial;
+  opacity: 1;
 }
 
 .viewer .bolt-page:not(:first-of-type) {
-	padding-bottom: 32px;
+  padding-bottom: 32px;
 }
 
 .viewer .vss-FilterBar {
-	flex-shrink: 0; /* fixes ADO-UI issue */
+  flex-shrink: 0;
+  /* fixes ADO-UI issue */
 }
 
 .heightAuto {
-	height: auto !important;
+  height: auto !important;
+}
+
+.flex-00auto {
+  flex: 0 0 auto;
+}
+
+.seeMore {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
 }
