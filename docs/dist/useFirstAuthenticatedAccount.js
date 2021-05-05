@@ -1,5 +1,5 @@
-import {AccountEntity, EventMessageUtils, EventType} from "../web_modules/@azure/msal-browser.js";
-import {useEffect, useState} from "../web_modules/react.js";
+import {AccountEntity, EventMessageUtils, EventType} from "../_snowpack/pkg/@azure/msal-browser.js";
+import {useEffect, useState} from "../_snowpack/pkg/react.js";
 function accountIsEqual(a, b) {
   if (a !== void 0 && b !== void 0)
     return AccountEntity.accountInfoIsEqual(a, b);

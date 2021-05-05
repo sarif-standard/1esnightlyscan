@@ -1,4 +1,4 @@
-import {PublicClientApplication} from "../web_modules/@azure/msal-browser.js";
+import {PublicClientApplication} from "../_snowpack/pkg/@azure/msal-browser.js";
 export const instance = new PublicClientApplication({
   auth: {
     clientId: "16acf595-5442-4b4b-8450-88b6ebfc098b",

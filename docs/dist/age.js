@@ -1,8 +1,8 @@
-import dayjs from "../web_modules/dayjs.js";
-import relativeTime from "../web_modules/dayjs/plugin/relativeTime.js";
-import timezone from "../web_modules/dayjs/plugin/timezone.js";
-import utc from "../web_modules/dayjs/plugin/utc.js";
-import React from "../web_modules/react.js";
+import dayjs from "../_snowpack/pkg/dayjs.js";
+import relativeTime from "../_snowpack/pkg/dayjs/plugin/relativeTime.js";
+import timezone from "../_snowpack/pkg/dayjs/plugin/timezone.js";
+import utc from "../_snowpack/pkg/dayjs/plugin/utc.js";
+import React from "../_snowpack/pkg/react.js";
 dayjs.extend(relativeTime);
 dayjs.extend(timezone);
 dayjs.extend(utc);

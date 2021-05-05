@@ -1,8 +1,10 @@
-import swc from "../web_modules/@microsoft/sarif-web-component.js";
-import {Button} from "../web_modules/azure-devops-ui/Button.js";
-import {MoreButton} from "../web_modules/azure-devops-ui/Menu.js";
-import {Spinner} from "../web_modules/azure-devops-ui/Spinner.js";
-import React, {useEffect, useState} from "../web_modules/react.js";
+import * as __SNOWPACK_ENV__ from '../_snowpack/env.js';
+
+import swc from "../_snowpack/pkg/@microsoft/sarif-web-component.js";
+import {Button} from "../_snowpack/pkg/azure-devops-ui/Button.js";
+import {MoreButton} from "../_snowpack/pkg/azure-devops-ui/Menu.js";
+import {Spinner} from "../_snowpack/pkg/azure-devops-ui/Spinner.js";
+import React, {useEffect, useState} from "../_snowpack/pkg/react.js";
 import {Age} from "./age.js";
 import {Discussion2} from "./discussion2.js";
 import {DiscussionStore} from "./discussionStore.js";
@@ -14,13 +16,13 @@ import {sarifLogSomeResults, sarifLogZeroResults} from "./sampleSarifLog.js";
 import params from "./searchParams.js";
 import {useFirstAuthenticatedAccount} from "./useFirstAuthenticatedAccount.js";
 const {Viewer} = swc;
-const discussionStore = new DiscussionStore(instance, params.secretHash);
 export function NightlyScan() {
   const account = useFirstAuthenticatedAccount(instance);
   const isAuthenticated = account !== void 0;
   const username = account?.username ?? "Anonymous";
   const [loading, setLoading] = useState(false);
   const [sarif, setSarif] = useState();
+  const [discussionStore, setDiscussionStore] = useState();
   const [getSnippets, setGetSnippets] = useState();
   const [repoEnabled, setRepoEnabled] = useState(params.mockRepoEnabled);
   const isRespository = repoEnabled != void 0;
@@ -37,7 +39,8 @@ export function NightlyScan() {
     });
     const outboundParams = new URLSearchParams(window.location.search);
     outboundParams.set("token", adoToken);
-    return await fetch(`https://1esnightlyscan-api.azurewebsites.net/api/${funcName}?${outboundParams}`, {method, headers});
+    const stage = __SNOWPACK_ENV__.MODE === "development" ? "-stage" : "";
+    return await fetch(`https://1esnightlyscan-api${stage}.azurewebsites.net/api/${funcName}?${outboundParams}`, {method, headers});
   }
   useEffect(() => {
     if (!isAuthenticated)
@@ -74,6 +77,7 @@ export function NightlyScan() {
         }
         setSarif(responseJson);
         computeRepoEnabled(responseJson);
+        setDiscussionStore(new DiscussionStore(instance, params.secretHash));
       } catch (error) {
         alert(error);
       }
@@ -138,7 +142,7 @@ export function NightlyScan() {
     onCreate: (getFilteredContextRegionSnippetTexts) => {
       setGetSnippets(() => getFilteredContextRegionSnippetTexts);
     }
-  })), /* @__PURE__ */ React.createElement(Discussion2, {
+  })), discussionStore && /* @__PURE__ */ React.createElement(Discussion2, {
     store: discussionStore,
     user: username
   })));

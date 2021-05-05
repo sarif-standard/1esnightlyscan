@@ -9,19 +9,19 @@ var __decorate = (decorators, target, key, kind) => {
     __defProp(target, key, result);
   return result;
 };
-import {Ago} from "../web_modules/azure-devops-ui/Ago.js";
-import {CardContent, CustomCard} from "../web_modules/azure-devops-ui/Card.js";
-import {ObservableValue} from "../web_modules/azure-devops-ui/Core/Observable.js";
-import {FormItem} from "../web_modules/azure-devops-ui/FormItem.js";
-import {Header} from "../web_modules/azure-devops-ui/Header.js";
-import {Icon} from "../web_modules/azure-devops-ui/Icon.js";
-import {MoreButton} from "../web_modules/azure-devops-ui/Menu.js";
-import {TextField} from "../web_modules/azure-devops-ui/TextField.js";
-import {VssPersona} from "../web_modules/azure-devops-ui/VssPersona.js";
-import {observable, runInAction} from "../web_modules/mobx.js";
-import {observer} from "../web_modules/mobx-react.js";
-import * as React from "../web_modules/react.js";
-import {Component, useState} from "../web_modules/react.js";
+import {Ago} from "../_snowpack/pkg/azure-devops-ui/Ago.js";
+import {CardContent, CustomCard} from "../_snowpack/pkg/azure-devops-ui/Card.js";
+import {ObservableValue} from "../_snowpack/pkg/azure-devops-ui/Core/Observable.js";
+import {FormItem} from "../_snowpack/pkg/azure-devops-ui/FormItem.js";
+import {Header} from "../_snowpack/pkg/azure-devops-ui/Header.js";
+import {Icon} from "../_snowpack/pkg/azure-devops-ui/Icon.js";
+import {MoreButton} from "../_snowpack/pkg/azure-devops-ui/Menu.js";
+import {TextField} from "../_snowpack/pkg/azure-devops-ui/TextField.js";
+import {VssPersona} from "../_snowpack/pkg/azure-devops-ui/VssPersona.js";
+import {observable, runInAction} from "../_snowpack/pkg/mobx.js";
+import {observer} from "../_snowpack/pkg/mobx-react.js";
+import * as React from "../_snowpack/pkg/react.js";
+import {Component, useState} from "../_snowpack/pkg/react.js";
 import {CommentEditor} from "./commentEditor.js";
 import {Comment} from "./comment.js";
 export const roleMap = new Map([
@@ -50,7 +50,7 @@ function TruncatedText(props) {
   return text.length < maxLength || seeMore ? /* @__PURE__ */ React.createElement(React.Fragment, null, text) : /* @__PURE__ */ React.createElement(React.Fragment, null, text.substring(0, maxLength), /* @__PURE__ */ React.createElement("span", {
     className: "seeMore",
     onClick: () => setSeeMore(true)
-  }, " \u2026 See More"));
+  }, " … See More"));
 }
 export let Discussion = class extends Component {
   constructor() {

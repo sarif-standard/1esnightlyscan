@@ -52,3 +52,7 @@
 .width-150 {
   width: 150px;
 }
+
+.padding-top-16-important {
+  padding-top: 16px !important;
+}

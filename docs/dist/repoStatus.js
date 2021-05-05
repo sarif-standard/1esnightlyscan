@@ -1,9 +1,9 @@
-import {Button} from "../web_modules/azure-devops-ui/Button.js";
-import {Card} from "../web_modules/azure-devops-ui/Card.js";
-import {Checkbox} from "../web_modules/azure-devops-ui/Checkbox.js";
-import {Icon, IconSize} from "../web_modules/azure-devops-ui/Icon.js";
-import {Page} from "../web_modules/azure-devops-ui/Page.js";
-import React, {useState} from "../web_modules/react.js";
+import {Button} from "../_snowpack/pkg/azure-devops-ui/Button.js";
+import {Card} from "../_snowpack/pkg/azure-devops-ui/Card.js";
+import {Checkbox} from "../_snowpack/pkg/azure-devops-ui/Checkbox.js";
+import {Icon, IconSize} from "../_snowpack/pkg/azure-devops-ui/Icon.js";
+import {Page} from "../_snowpack/pkg/azure-devops-ui/Page.js";
+import React, {useState} from "../_snowpack/pkg/react.js";
 export function RepoStatus(props) {
   const {repository, repoEnabled, sarif, fetchSpam, setRepoEnabled} = props;
   const [responsibility, setResponsibility] = useState(false);

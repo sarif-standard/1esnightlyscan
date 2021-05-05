@@ -9,8 +9,8 @@ var __decorate = (decorators, target, key, kind) => {
     __defProp(target, key, result);
   return result;
 };
-import {observable} from "../web_modules/mobx.js";
-import {deepObserve} from "../web_modules/mobx-utils.js";
+import {observable} from "../_snowpack/pkg/mobx.js";
+import {deepObserve} from "../_snowpack/pkg/mobx-utils.js";
 export class DiscussionStore {
   constructor(instance, secretHash) {
     this.instance = instance;

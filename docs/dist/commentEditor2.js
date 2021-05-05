@@ -1,10 +1,10 @@
-import {Button} from "../web_modules/azure-devops-ui/Button.js";
-import {TextField} from "../web_modules/azure-devops-ui/TextField.js";
-import * as React from "../web_modules/react.js";
-import {useState} from "../web_modules/react.js";
+import {Button} from "../_snowpack/pkg/azure-devops-ui/Button.js";
+import {TextField} from "../_snowpack/pkg/azure-devops-ui/TextField.js";
+import * as React from "../_snowpack/pkg/react.js";
+import {useState} from "../_snowpack/pkg/react.js";
 import {roleItems, voteItems} from "./discussion.js";
 import {MultipleDropdown} from "./multipleDropdown.js";
-import {Checkbox} from "../web_modules/azure-devops-ui/Checkbox.js";
+import {Checkbox} from "../_snowpack/pkg/azure-devops-ui/Checkbox.js";
 export function CommentEditor2(props) {
   const [roles, setRoles] = useState(props.comment.roles);
   const [votes, setVotes] = useState(props.comment.votes);

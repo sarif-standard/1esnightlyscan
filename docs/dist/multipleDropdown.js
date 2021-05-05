@@ -1,7 +1,7 @@
-import {Dropdown} from "../web_modules/azure-devops-ui/Dropdown.js";
-import {DropdownMultiSelection} from "../web_modules/azure-devops-ui/Utilities/DropdownSelection.js";
-import * as React from "../web_modules/react.js";
-import {Component} from "../web_modules/react.js";
+import {Dropdown} from "../_snowpack/pkg/azure-devops-ui/Dropdown.js";
+import {DropdownMultiSelection} from "../_snowpack/pkg/azure-devops-ui/Utilities/DropdownSelection.js";
+import * as React from "../_snowpack/pkg/react.js";
+import {Component} from "../_snowpack/pkg/react.js";
 export class MultipleDropdown extends Component {
   constructor() {
     super(...arguments);

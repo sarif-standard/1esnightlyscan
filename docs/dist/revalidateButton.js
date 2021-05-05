@@ -1,5 +1,5 @@
-import {Button} from "../web_modules/azure-devops-ui/Button.js";
-import React from "../web_modules/react.js";
+import {Button} from "../_snowpack/pkg/azure-devops-ui/Button.js";
+import React from "../_snowpack/pkg/react.js";
 export function RevalidateButton(props) {
   const {disabled, getSnippets} = props;
   return /* @__PURE__ */ React.createElement(Button, {

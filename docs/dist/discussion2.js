@@ -9,19 +9,19 @@ var __decorate = (decorators, target, key, kind) => {
     __defProp(target, key, result);
   return result;
 };
-import {Ago} from "../web_modules/azure-devops-ui/Ago.js";
-import {Button} from "../web_modules/azure-devops-ui/Button.js";
-import {Card} from "../web_modules/azure-devops-ui/Card.js";
-import {Page} from "../web_modules/azure-devops-ui/Page.js";
-import {Pill, PillSize} from "../web_modules/azure-devops-ui/Pill.js";
-import {SurfaceBackground, SurfaceContext} from "../web_modules/azure-devops-ui/Surface.js";
-import {TextField} from "../web_modules/azure-devops-ui/TextField.js";
-import {copyToClipboard} from "../web_modules/azure-devops-ui/Utils/ClipboardUtils.js";
-import {VssPersona} from "../web_modules/azure-devops-ui/VssPersona.js";
-import {observable, runInAction} from "../web_modules/mobx.js";
-import {observer} from "../web_modules/mobx-react.js";
-import * as React from "../web_modules/react.js";
-import {Component} from "../web_modules/react.js";
+import {Ago} from "../_snowpack/pkg/azure-devops-ui/Ago.js";
+import {Button} from "../_snowpack/pkg/azure-devops-ui/Button.js";
+import {Card} from "../_snowpack/pkg/azure-devops-ui/Card.js";
+import {Page} from "../_snowpack/pkg/azure-devops-ui/Page.js";
+import {Pill, PillSize} from "../_snowpack/pkg/azure-devops-ui/Pill.js";
+import {SurfaceBackground, SurfaceContext} from "../_snowpack/pkg/azure-devops-ui/Surface.js";
+import {TextField} from "../_snowpack/pkg/azure-devops-ui/TextField.js";
+import {copyToClipboard} from "../_snowpack/pkg/azure-devops-ui/Utils/ClipboardUtils.js";
+import {VssPersona} from "../_snowpack/pkg/azure-devops-ui/VssPersona.js";
+import {observable, runInAction} from "../_snowpack/pkg/mobx.js";
+import {observer} from "../_snowpack/pkg/mobx-react.js";
+import * as React from "../_snowpack/pkg/react.js";
+import {Component} from "../_snowpack/pkg/react.js";
 import {Comment} from "./comment.js";
 import {CommentEditor2} from "./commentEditor2.js";
 import {roleMap, voteMap} from "./discussion.js";
@@ -87,23 +87,24 @@ export let Discussion2 = class extends Component {
     }, /* @__PURE__ */ React.createElement(Page, {
       className: "discussion2 rhythm-vertical-16"
     }, /* @__PURE__ */ React.createElement(Card, {
-      titleProps: {text: /* @__PURE__ */ React.createElement("div", {
-        className: "flex-row flex-center rhythm-horizontal-8"
-      }, /* @__PURE__ */ React.createElement("span", null, "Secret Hash"), /* @__PURE__ */ React.createElement("div", {
-        className: "flex-row flex-center"
-      }, /* @__PURE__ */ React.createElement(TextField, {
-        value: store.secretHash,
-        className: "width-150",
-        readOnly: true
-      }), /* @__PURE__ */ React.createElement(Button, {
-        iconProps: {iconName: "Copy"},
-        subtle: true,
-        onClick: () => copyToClipboard(store.secretHash ?? ""),
-        tooltipProps: {text: "Copy to clipboard"}
-      })))}
+      className: "padding-top-16-important",
+      contentProps: {className: "rhythm-vertical-16"}
     }, /* @__PURE__ */ React.createElement("div", {
-      className: "flex-column rhythm-vertical-16"
-    }, voteItems.map((voteItem) => {
+      className: "flex-row flex-center rhythm-horizontal-8"
+    }, /* @__PURE__ */ React.createElement("span", {
+      className: "font-weight-semibold"
+    }, "Secret Hash"), /* @__PURE__ */ React.createElement("div", {
+      className: "flex-row flex-center"
+    }, /* @__PURE__ */ React.createElement(TextField, {
+      value: store.secretHash,
+      className: "width-150",
+      readOnly: true
+    }), /* @__PURE__ */ React.createElement(Button, {
+      iconProps: {iconName: "Copy"},
+      subtle: true,
+      onClick: () => copyToClipboard(store.secretHash ?? ""),
+      tooltipProps: {text: "Copy to clipboard"}
+    }))), voteItems.map((voteItem) => {
       if (!voteItem.names.length)
         return null;
       return /* @__PURE__ */ React.createElement("div", {
@@ -121,7 +122,7 @@ export let Discussion2 = class extends Component {
         value: voteItem.names.length,
         maxValue: maxCount
       }));
-    }))), sorted.map((comment, i) => /* @__PURE__ */ React.createElement(Card, {
+    })), sorted.map((comment, i) => /* @__PURE__ */ React.createElement(Card, {
       key: i,
       titleProps: {
         text: /* @__PURE__ */ React.createElement("span", {
@@ -169,7 +170,7 @@ export let Discussion2 = class extends Component {
       className: "margin-top-12"
     }, /* @__PURE__ */ React.createElement("strong", null, "Comments:"), " ", comment.text), !comment.roles.length && !comment.votes.length && !comment.text && /* @__PURE__ */ React.createElement("div", {
       className: "secondary-text text-center"
-    }, "Viewed this discussion"))))));
+    }, "Viewed this live secret report"))))));
   }
 };
 __decorate([
