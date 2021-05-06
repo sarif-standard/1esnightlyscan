@@ -22,43 +22,174 @@ export const sarifLogSomeResults = {
     {
       tool: {
         driver: {
-          name: "Request Failure",
+          name: "Live Secrets",
           rules: [
             {
-              id: "BACKEND/001",
-              name: "BackendFailure",
-              messageStrings: {
-                Default: {
-                  text: "Invalid request arguments: "
-                }
-              },
-              helpUri: "https://aka.ms/1esnightlyscan"
+              id: "SEC101/006",
+              name: "DoNotExposePlaintextSecrets/GitHubPat"
             }
           ]
         }
       },
-      invocations: [
-        {
-          executionSuccessful: true
-        }
-      ],
       results: [
         {
-          ruleId: "BACKEND/001",
-          ruleIndex: 0,
+          ruleId: "SEC101/006",
           level: "error",
           message: {
-            id: "Default"
+            text: "'15653102' contains a valid GitHub personal access token (legacy format) (the compromised GitHub account 'foobar ()' has access to the following orgs ''). The subscription backing this Azure resource is associated with the '(Non-Service Based Credential)' The raw data that was scanned for this finding can be viewed [here](https://org.vsrm.visualstudio.com/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/_apis/Release/releases/15653102)."
           },
           locations: [
             {
               physicalLocation: {
                 artifactLocation: {
-                  uri: "https://sarif-pattern-matcher-internal-function.azurewebsites.net/api/query?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsIng1dCI6Im5PbzNaRHJPRFhFSzFqS1doWHNsSFJfS1hFZyIsImtpZCI6Im5PbzNaRHJPRFhFSzFqS1doWHNsSFJfS1hFZyJ9.eyJhdWQiOiI0OTliODRhYy0xMzIxLTQyN2YtYWExNy0yNjdjYTY5NzU3OTgiLCJpc3MiOiJodHRwczovL3N0cy53aW5kb3dzLm5ldC83MmY5ODhiZi04NmYxLTQxYWYtOTFhYi0yZDdjZDAxMWRiNDcvIiwiaWF0IjoxNjE5NzE5OTgwLCJuYmYiOjE2MTk3MTk5ODAsImV4cCI6MTYxOTcyMzg4MCwiYWNyIjoiMSIsImFpbyI6IkFWUUFxLzhUQUFBQTdYOXh0UVhvWkZ0L0kwUkl6RjNxVFdKUU5QdzFEeEl6M2R6Wld1cmg0bzlJUElMZ0JEVmVUUkVFK0VQNjA4angzUmZ3MHVuRzlIbDU1KzZwRkxCckw1ZHpnRk1qTHJERE4xellwamVFRUY0PSIsImFtciI6WyJwd2QiLCJtZmEiXSwiYXBwaWQiOiIxNmFjZjU5NS01NDQyLTRiNGItODQ1MC04OGI2ZWJmYzA5OGIiLCJhcHBpZGFjciI6IjAiLCJmYW1pbHlfbmFtZSI6IktpbmciLCJnaXZlbl9uYW1lIjoiSmVmZiIsImlwYWRkciI6IjYzLjIzNy4yMjkuOTgiLCJuYW1lIjoiSmVmZiBLaW5nIChURUtzeXN0ZW1zIEluYykiLCJvaWQiOiI0ZjA4ODdkOC1iYmYzLTQ5ODEtYWFjNS1mNDE4OGVkZGUxNWMiLCJvbnByZW1fc2lkIjoiUy0xLTUtMjEtMjEyNzUyMTE4NC0xNjA0MDEyOTIwLTE4ODc5Mjc1MjctNDQ1Njk4NTAiLCJwdWlkIjoiMTAwMzIwMDBEQTJENDBDMiIsInJoIjoiMC5BUm9BdjRqNWN2R0dyMEdScXkxODBCSGJSNVgxckJaQ1ZFdExoRkNJdHV2OENZc2FBTDQuIiwic2NwIjoidXNlcl9pbXBlcnNvbmF0aW9uIiwic3ViIjoiUUNsYXoxQktIYktvS0tFUWNKQVBJNFdRSlZod29DMEpwcW1BLS1wcmhNMCIsInRpZCI6IjcyZjk4OGJmLTg2ZjEtNDFhZi05MWFiLTJkN2NkMDExZGI0NyIsInVuaXF1ZV9uYW1lIjoidi1qZWZraUBtaWNyb3NvZnQuY29tIiwidXBuIjoidi1qZWZraUBtaWNyb3NvZnQuY29tIiwidXRpIjoiZmlDUE5BQlcxMHkwUHpGSkU4SWRBQSIsInZlciI6IjEuMCIsIndpZHMiOlsiYjc5ZmJmNGQtM2VmOS00Njg5LTgxNDMtNzZiMTk0ZTg1NTA5Il19.Cngf1EnmloUCVEtNvokaGP3TkHOfEaNJ8M6ipAoxCyXjdtzRwChGeeLXjrKSt4eIq8H1F5EnWLgCa3KY735jtDNKXG07U5NKuICInmBXZlUYjC2Yq0AhzyAR4QXgxMN-NTVqo-weKWGexHtONAgVy_Xye6HjGX4SPgL1LaH9hu697dMqbSXx5EDrZnZRfdNKhfulQ73LmEXEYzjtUUJMMSkYQWekaTw1_IAlDKmwOXKHa3zMHoyoWCSfkMCwp1SxQrMd07lJQktO_AI0wjekZbUG-KVB2GcImUyEK9YPcowRDHQ53IzHxVq7v8XxAo_RzUCdT-wraaWhzcDyKPy2sg"
+                  uri: "https://org.visualstudio.com/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/_release?_a=releases&view=mine&definitionId=1014"
+                },
+                region: {
+                  startLine: 3849,
+                  startColumn: 18,
+                  endLine: 3849,
+                  endColumn: 80,
+                  charOffset: 220631,
+                  charLength: 62,
+                  snippet: {
+                    text: 'gitHubIssueRepoPat": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+                  }
+                },
+                contextRegion: {
+                  startLine: 3848,
+                  startColumn: 1,
+                  endLine: 3850,
+                  endColumn: 16,
+                  charOffset: 220546,
+                  charLength: 165,
+                  snippet: {
+                    text: '                "gitHubIssueRepoName": "ReliabilityExtensionTest",\r\n                "gitHubIssueRepoPat": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"\r\n              }'
+                  }
                 }
               }
             }
-          ]
+          ],
+          fingerprints: {
+            "AssetFingerprint/v1": "[platform=github]",
+            "GlobalFingerprint/v1": "[secret=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]",
+            "ValidationFingerprint/v1": "[secret=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]",
+            "ValidationFingerprintHash/v1": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          baselineState: "new",
+          rank: 52.68,
+          properties: {
+            organizationName: "org",
+            projectName: "Project",
+            projectId: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+            repositoryName: "",
+            repositoryId: ""
+          }
+        },
+        {
+          ruleId: "SEC101/006",
+          level: "error",
+          message: {
+            text: "'15545584' contains a valid GitHub personal access token (legacy format) (the compromised GitHub account 'foobar ()' has access to the following orgs ''). The subscription backing this Azure resource is associated with the '(Non-Service Based Credential)' The raw data that was scanned for this finding can be viewed [here](https://org.vsrm.visualstudio.com/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/_apis/Release/releases/15545584)."
+          },
+          locations: [
+            {
+              physicalLocation: {
+                artifactLocation: {
+                  uri: "https://org.visualstudio.com/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/_release?_a=releases&view=mine&definitionId=1014"
+                },
+                region: {
+                  startLine: 3855,
+                  startColumn: 18,
+                  endLine: 3855,
+                  endColumn: 80,
+                  charOffset: 220299,
+                  charLength: 62,
+                  snippet: {
+                    text: 'gitHubIssueRepoPat": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+                  }
+                },
+                contextRegion: {
+                  startLine: 3854,
+                  startColumn: 1,
+                  endLine: 3856,
+                  endColumn: 16,
+                  charOffset: 220214,
+                  charLength: 165,
+                  snippet: {
+                    text: '                "gitHubIssueRepoName": "ReliabilityExtensionTest",\r\n                "gitHubIssueRepoPat": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"\r\n              }'
+                  }
+                }
+              }
+            }
+          ],
+          fingerprints: {
+            "AssetFingerprint/v1": "[platform=github]",
+            "GlobalFingerprint/v1": "[secret=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]",
+            "ValidationFingerprint/v1": "[secret=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]",
+            "ValidationFingerprintHash/v1": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          baselineState: "new",
+          rank: 52.68,
+          properties: {
+            organizationName: "org",
+            projectName: "Project",
+            projectId: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+            repositoryName: "",
+            repositoryId: ""
+          }
+        },
+        {
+          ruleId: "SEC101/006",
+          level: "error",
+          message: {
+            text: "'14610626' contains a valid GitHub personal access token (legacy format) (the compromised GitHub account 'foobar ()' has access to the following orgs ''). The subscription backing this Azure resource is associated with the '(Non-Service Based Credential)' The raw data that was scanned for this finding can be viewed [here](https://org.vsrm.visualstudio.com/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/_apis/Release/releases/14610626)."
+          },
+          locations: [
+            {
+              physicalLocation: {
+                artifactLocation: {
+                  uri: "https://org.visualstudio.com/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/_release?_a=releases&view=mine&definitionId=1014"
+                },
+                region: {
+                  startLine: 4154,
+                  startColumn: 18,
+                  endLine: 4154,
+                  endColumn: 80,
+                  charOffset: 233681,
+                  charLength: 62,
+                  snippet: {
+                    text: 'gitHubIssueRepoPat": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+                  }
+                },
+                contextRegion: {
+                  startLine: 4153,
+                  startColumn: 1,
+                  endLine: 4155,
+                  endColumn: 16,
+                  charOffset: 233596,
+                  charLength: 165,
+                  snippet: {
+                    text: '                "gitHubIssueRepoName": "ReliabilityExtensionTest",\r\n                "gitHubIssueRepoPat": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"\r\n              }'
+                  }
+                }
+              }
+            }
+          ],
+          fingerprints: {
+            "AssetFingerprint/v1": "[platform=github]",
+            "GlobalFingerprint/v1": "[secret=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]",
+            "ValidationFingerprint/v1": "[secret=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]",
+            "ValidationFingerprintHash/v1": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          baselineState: "new",
+          rank: 52.68,
+          properties: {
+            organizationName: "org",
+            projectName: "Project",
+            projectId: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+            repositoryName: "",
+            repositoryId: ""
+          }
         }
       ],
       columnKind: "utf16CodeUnits"

@@ -49,20 +49,21 @@ export function NightlyScan() {
       return;
     if (sarif)
       return;
-    function computeRepoEnabled(log) {
+    function onSarifChanged(log) {
       if (params.mockRepoEnabled !== void 0)
         return;
       const repoDisabled = log.runs?.[0]?.versionControlProvenance?.[0]?.properties?.isDisabled;
       setRepoEnabled(repoDisabled == void 0 ? void 0 : !repoDisabled);
+      setDiscussionStore(new DiscussionStore(instance, params.secretHash));
     }
     if (params.mockZeroResults) {
       setSarif(sarifLogZeroResults);
-      computeRepoEnabled(sarifLogZeroResults);
+      onSarifChanged(sarifLogZeroResults);
       return;
     }
     if (params.mockSomeResults) {
       setSarif(sarifLogSomeResults);
-      computeRepoEnabled(sarifLogSomeResults);
+      onSarifChanged(sarifLogSomeResults);
       return;
     }
     ;
@@ -76,8 +77,7 @@ export function NightlyScan() {
           download(`${fileName}.sarif`, JSON.stringify(responseJson, null, "  "));
         }
         setSarif(responseJson);
-        computeRepoEnabled(responseJson);
-        setDiscussionStore(new DiscussionStore(instance, params.secretHash));
+        onSarifChanged(responseJson);
       } catch (error) {
         alert(error);
       }
