@@ -87,17 +87,17 @@ export let Discussion2 = class extends Component {
     }, /* @__PURE__ */ React.createElement(Page, {
       className: "discussion2 rhythm-vertical-16"
     }, /* @__PURE__ */ React.createElement(Card, {
-      className: "padding-top-16-important",
+      className: "padding-vertical-8-important",
       contentProps: {className: "rhythm-vertical-16"}
     }, /* @__PURE__ */ React.createElement("div", {
       className: "flex-row flex-center rhythm-horizontal-8"
     }, /* @__PURE__ */ React.createElement("span", {
       className: "font-weight-semibold"
     }, "Secret Hash"), /* @__PURE__ */ React.createElement("div", {
-      className: "flex-row flex-center"
+      className: "flex-row flex-center flex-grow"
     }, /* @__PURE__ */ React.createElement(TextField, {
       value: store.secretHash,
-      className: "width-150",
+      containerClassName: "flex-grow",
       readOnly: true
     }), /* @__PURE__ */ React.createElement(Button, {
       iconProps: {iconName: "Copy"},

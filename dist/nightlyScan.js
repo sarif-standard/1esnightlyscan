@@ -39,7 +39,7 @@ export function NightlyScan() {
     });
     const outboundParams = new URLSearchParams(window.location.search);
     outboundParams.set("token", adoToken);
-    const stage = __SNOWPACK_ENV__.MODE === "development" ? "-stage" : "";
+    const stage = __SNOWPACK_ENV__.MODE === "development" || document.location.pathname.includes("stage") ? "-stage" : "";
     return await fetch(`https://1esnightlyscan-api${stage}.azurewebsites.net/api/${funcName}?${outboundParams}`, {method, headers});
   }
   useEffect(() => {
@@ -93,7 +93,8 @@ export function NightlyScan() {
   }, /* @__PURE__ */ React.createElement("div", {
     className: "flex-column flex-center"
   }, /* @__PURE__ */ React.createElement(Button, {
-    onClick: () => instance.acquireTokenPopup({scopes: []})
+    onClick: () => instance.acquireTokenPopup({scopes: []}),
+    primary: true
   }, "Sign in"), /* @__PURE__ */ React.createElement("div", {
     className: "signinMessage"
   }, "Sign in to view scan results.")))) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", {
@@ -137,10 +138,16 @@ export function NightlyScan() {
       Baseline: {value: ["new", "unchanged", "updated"]},
       Level: {value: ["error"]}
     },
-    hideBaseline: true,
+    hideBaseline: !params.showBaseline,
     successMessage: isRespository ? `No live secrets have been detected in the '${params.repository ?? params.repo}' repository. Nice job!` : "No live secrets detected.",
     onCreate: (getFilteredContextRegionSnippetTexts) => {
       setGetSnippets(() => getFilteredContextRegionSnippetTexts);
+    },
+    onSnippetAction: (result) => {
+      const hash = result.fingerprints?.["ValidationFingerprintHash/v1"];
+      if (!hash)
+        return;
+      window.open(`${document.location.href.split("?").shift()}?secretHash=${hash}`);
     }
   })), discussionStore && /* @__PURE__ */ React.createElement(Discussion2, {
     store: discussionStore,

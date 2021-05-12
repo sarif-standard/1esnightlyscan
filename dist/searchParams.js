@@ -37,5 +37,11 @@ export default {
   },
   get secretHash() {
     return getParam("secretHash") ?? void 0;
+  },
+  get showBaseline() {
+    const value = getParam("showBaseline");
+    if (value === "")
+      return true;
+    return void 0;
   }
 };

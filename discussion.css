@@ -49,10 +49,7 @@
   z-index: 2;
 }
 
-.width-150 {
-  width: 150px;
-}
-
-.padding-top-16-important {
-  padding-top: 16px !important;
+.padding-vertical-8-important {
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
 }
