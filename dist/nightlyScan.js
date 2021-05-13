@@ -23,7 +23,6 @@ export function NightlyScan() {
   const [loading, setLoading] = useState(false);
   const [sarif, setSarif] = useState();
   const [discussionStore, setDiscussionStore] = useState();
-  const [getSnippets, setGetSnippets] = useState();
   const [repoEnabled, setRepoEnabled] = useState(params.mockRepoEnabled);
   const isRespository = repoEnabled != void 0;
   async function callApi(funcName, method) {
@@ -101,10 +100,7 @@ export function NightlyScan() {
     className: "intro"
   }, /* @__PURE__ */ React.createElement("div", {
     className: "introHeader"
-  }, /* @__PURE__ */ React.createElement("h1", null, document.title, ": Live Secrets"), /* @__PURE__ */ React.createElement(Age, null), loading && /* @__PURE__ */ React.createElement(Spinner, null), /* @__PURE__ */ React.createElement(RevalidateButton, {
-    disabled: !sarif,
-    getSnippets
-  }), /* @__PURE__ */ React.createElement(Button, {
+  }, /* @__PURE__ */ React.createElement("h1", null, document.title, ": Live Secrets"), /* @__PURE__ */ React.createElement(Age, null), loading && /* @__PURE__ */ React.createElement(Spinner, null), /* @__PURE__ */ React.createElement(RevalidateButton, null), /* @__PURE__ */ React.createElement(Button, {
     iconProps: {iconName: "Mail"},
     href: `mailto:caicredremediation@microsoft.com?subject=${encodeURIComponent(document.location.toString())}`
   }), /* @__PURE__ */ React.createElement(Button, {
@@ -140,9 +136,6 @@ export function NightlyScan() {
     },
     hideBaseline: !params.showBaseline,
     successMessage: isRespository ? `No live secrets have been detected in the '${params.repository ?? params.repo}' repository. Nice job!` : "No live secrets detected.",
-    onCreate: (getFilteredContextRegionSnippetTexts) => {
-      setGetSnippets(() => getFilteredContextRegionSnippetTexts);
-    },
     onSnippetAction: (result) => {
       const hash = result.fingerprints?.["ValidationFingerprintHash/v1"];
       if (!hash)
