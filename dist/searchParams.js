@@ -6,8 +6,11 @@ export default {
   get download() {
     return getParam("download") != null;
   },
-  get filterKeywords() {
-    return getParam("filterKeywords") ?? "";
+  get keywords() {
+    return getParam("keywords") ?? "";
+  },
+  get level() {
+    return getParam("level")?.split(",");
   },
   get mockRepoEnabled() {
     const value = getParam("mockRepoEnabled");
