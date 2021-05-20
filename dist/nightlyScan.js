@@ -137,7 +137,7 @@ export function NightlyScan() {
     hideBaseline: !params.showBaseline,
     successMessage: (() => {
       if (params.unassignedRepos)
-        return "No unassigned repositories were found.";
+        return "We found no unassigned repositories for which you are responsible.";
       if (isRespository)
         return `No live secrets have been detected in the '${params.repository ?? params.repo}' repository. Nice job!`;
       return "No live secrets detected.";
