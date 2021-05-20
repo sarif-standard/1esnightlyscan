@@ -100,7 +100,7 @@ export function NightlyScan() {
     className: "intro"
   }, /* @__PURE__ */ React.createElement("div", {
     className: "introHeader"
-  }, /* @__PURE__ */ React.createElement("h1", null, document.title, ": Live Secrets"), /* @__PURE__ */ React.createElement(Age, null), loading && /* @__PURE__ */ React.createElement(Spinner, null), /* @__PURE__ */ React.createElement(RevalidateButton, null), /* @__PURE__ */ React.createElement(Button, {
+  }, /* @__PURE__ */ React.createElement("h1", null, document.title, ": ", params.unassignedRepos ? "Product Catalog" : "Live Secrets"), /* @__PURE__ */ React.createElement(Age, null), loading && /* @__PURE__ */ React.createElement(Spinner, null), !params.unassignedRepos && /* @__PURE__ */ React.createElement(RevalidateButton, null), /* @__PURE__ */ React.createElement(Button, {
     iconProps: {iconName: "Mail"},
     href: `mailto:caicredremediation@microsoft.com?subject=${encodeURIComponent(document.location.toString())}`
   }), /* @__PURE__ */ React.createElement(Button, {
@@ -135,7 +135,13 @@ export function NightlyScan() {
       Level: {value: params.level ?? ["error"]}
     },
     hideBaseline: !params.showBaseline,
-    successMessage: isRespository ? `No live secrets have been detected in the '${params.repository ?? params.repo}' repository. Nice job!` : "No live secrets detected.",
+    successMessage: (() => {
+      if (params.unassignedRepos)
+        return "No unassigned repositories were found.";
+      if (isRespository)
+        return `No live secrets have been detected in the '${params.repository ?? params.repo}' repository. Nice job!`;
+      return "No live secrets detected.";
+    })(),
     onSnippetAction: (result) => {
       const hash = result.fingerprints?.["ValidationFingerprintHash/v1"];
       if (!hash)
