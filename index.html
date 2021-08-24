@@ -2,9 +2,6 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <link rel="stylesheet" type="text/css" href="vars.css" />
-    <link rel="stylesheet" type="text/css" href="index.css" />
-    <link rel="stylesheet" type="text/css" href="discussion.css" />
     <title>1ES Nightly Scan</title>
     <!-- https://github.com/Microsoft/ApplicationInsights-JS#snippet-setup-ignore-if-using-npm-setup -->
     <script type="text/javascript">
@@ -17,7 +14,8 @@
     </script>
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="dist/index.js"></script>
+    <script>
+      location.replace(`https://1eslivesecrets.azurewebsites.net/nightly${location.search}`)
+    </script>
   </body>
 </html>
